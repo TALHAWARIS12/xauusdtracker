@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-terminal-black: #0B0E14;
+  --color-terminal-surface: #121824;
+  --color-terminal-card: #182030;
+  --color-terminal-border: #243048;
+  --color-terminal-green: #00E676;
+  --color-terminal-red: #FF334B;
+  --color-terminal-gold: #F59E0B;
+  --color-terminal-subtext: #94A3B8;
+}
+
+body {
+  background-color: #0B0E14;
+  color: #E2E8F0;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  overflow-x: hidden;
+  letter-spacing: -0.01em;
+}
+
+/* Custom Bloomberg Terminal Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0B0E14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #243048;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #F59E0B;
+}
+
+/* Terminal text selection */
+::selection {
+  background-color: #F59E0B;
+  color: #0B0E14;
+}
+
+@keyframes terminal-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.terminal-blink {
+  animation: terminal-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
