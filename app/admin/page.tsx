@@ -14,6 +14,14 @@ import {
   UserManagementTable,
   AdminUserItem,
 } from "@/components/admin/UserManagementTable";
+import {
+  PaymentHistoryTable,
+  AdminPaymentItem,
+} from "@/components/admin/PaymentHistoryTable";
+import {
+  AdminAuditLogTable,
+  AdminAuditItem,
+} from "@/components/admin/AdminAuditLogTable";
 
 export default async function AdminPage() {
   const session = await auth();
@@ -28,9 +36,13 @@ export default async function AdminPage() {
   const activeSubs = await prisma.subscription.count({
     where: { status: "ACTIVE" },
   });
+  const manualVips = await prisma.subscription.count({
+    where: { status: "ACTIVE", source: "MANUAL_OVERRIDE" },
+  });
+  const stripeSubs = activeSubs - manualVips;
 
   const MONTHLY_PLAN_PRICE = 99; // Standard institutional tier ($99/mo)
-  const estimatedMrr = activeSubs * MONTHLY_PLAN_PRICE;
+  const estimatedMrr = stripeSubs * MONTHLY_PLAN_PRICE;
 
   // Retrieve user directory with subscriptions
   const dbUsers = await prisma.user.findMany({
@@ -43,14 +55,52 @@ export default async function AdminPage() {
     email: u.email,
     role: u.role,
     subscriptionStatus: u.subscription?.status ?? "INACTIVE",
+    subscriptionSource: u.subscription?.source ?? "STRIPE",
     currentPeriodEnd: u.subscription?.currentPeriodEnd
       ? u.subscription.currentPeriodEnd.toISOString()
       : null,
     createdAt: u.createdAt.toISOString(),
   }));
 
+  // Retrieve payment records
+  const dbPayments = await prisma.payment.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 15,
+    include: { user: { select: { email: true } } },
+  });
+
+  const payments: AdminPaymentItem[] = dbPayments.map((p) => ({
+    id: p.id,
+    userEmail: p.user.email,
+    provider: p.provider,
+    providerReference: p.providerReference,
+    amount: p.amount,
+    currency: p.currency,
+    status: p.status,
+    createdAt: p.createdAt.toISOString(),
+  }));
+
+  // Retrieve audit trail events
+  const dbAudits = await prisma.adminAuditEvent.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 15,
+    include: {
+      adminUser: { select: { email: true } },
+      targetUser: { select: { email: true } },
+    },
+  });
+
+  const auditEvents: AdminAuditItem[] = dbAudits.map((a) => ({
+    id: a.id,
+    adminEmail: a.adminUser.email,
+    targetEmail: a.targetUser.email,
+    action: a.action,
+    reason: a.reason,
+    createdAt: a.createdAt.toISOString(),
+  }));
+
   return (
-    <div className="flex-1 bg-terminal-black text-xs font-mono p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6 select-none">
+    <div className="flex-1 bg-terminal-black text-xs font-mono p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-8 select-none">
       {/* Admin Top Header Banner */}
       <div className="bg-terminal-surface border border-terminal-border rounded-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
         <div className="flex items-center gap-3.5">
@@ -94,21 +144,21 @@ export default async function AdminPage() {
             {totalUsers.toLocaleString()}
           </div>
           <div className="text-[10px] text-terminal-subtext">
-            Prisma User Model · Synced
+            PostgreSQL Database · Synced
           </div>
         </div>
 
-        {/* KPI 2: Active Paying Subscribers */}
+        {/* KPI 2: Active Clearances */}
         <div className="bg-terminal-surface border border-terminal-border rounded-lg p-4 space-y-2">
           <div className="flex items-center justify-between text-terminal-subtext text-[11px] tracking-wider uppercase">
-            <span>Active Subscribers</span>
+            <span>Active Clearances</span>
             <CheckCircle2 className="w-4 h-4 text-terminal-green" />
           </div>
           <div className="text-3xl font-extrabold text-terminal-green tabular-nums">
             {activeSubs.toLocaleString()}
           </div>
           <div className="text-[10px] text-terminal-green/90">
-            Active Subscriptions Table
+            {stripeSubs} Stripe Paid · {manualVips} Manual VIP
           </div>
         </div>
 
@@ -165,6 +215,12 @@ export default async function AdminPage() {
           <UserManagementTable users={users} />
         </div>
       </div>
+
+      {/* Payment History Table */}
+      <PaymentHistoryTable payments={payments} />
+
+      {/* Admin Audit Trail */}
+      <AdminAuditLogTable events={auditEvents} />
     </div>
   );
 }

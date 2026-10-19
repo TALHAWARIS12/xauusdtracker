@@ -73,6 +73,52 @@ export function generateFallbackCandles(count = 100, basePrice = 2714.85): Candl
 }
 
 /**
+ * Aggregates 1-minute candles into higher timeframes (e.g., 5-minute or 15-minute bars).
+ */
+export function aggregateCandles(candles: Candle[], timeframeMinutes = 1): Candle[] {
+  if (!candles || candles.length === 0 || timeframeMinutes <= 1) {
+    return candles;
+  }
+
+  const intervalSeconds = timeframeMinutes * 60;
+  const groups = new Map<number, Candle[]>();
+
+  for (const c of candles) {
+    const bucketTime = Math.floor(c.time / intervalSeconds) * intervalSeconds;
+    const group = groups.get(bucketTime) || [];
+    group.push(c);
+    groups.set(bucketTime, group);
+  }
+
+  const aggregated: Candle[] = [];
+  for (const [bucketTime, group] of groups.entries()) {
+    group.sort((a, b) => a.time - b.time);
+    const open = group[0].open;
+    const close = group[group.length - 1].close;
+    let high = -Infinity;
+    let low = Infinity;
+    let volume = 0;
+
+    for (const c of group) {
+      if (c.high > high) high = c.high;
+      if (c.low < low) low = c.low;
+      volume += c.volume;
+    }
+
+    aggregated.push({
+      time: bucketTime,
+      open,
+      high: Number(high.toFixed(2)),
+      low: Number(low.toFixed(2)),
+      close,
+      volume: Number(volume.toFixed(2)),
+    });
+  }
+
+  return aggregated.sort((a, b) => a.time - b.time);
+}
+
+/**
  * Attempts to fetch from a given URL with a strict timeout
  */
 async function fetchWithTimeout(url: string, timeoutMs = 2500): Promise<Candle[]> {

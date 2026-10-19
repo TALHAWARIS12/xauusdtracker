@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { grantManualVip, revokeVip } from "@/actions/admin-actions";
-import { CheckCircle2, XCircle, ShieldCheck, UserX, Loader2, Calendar } from "lucide-react";
+import { CheckCircle2, XCircle, ShieldCheck, UserX, Loader2, Calendar, Search, Filter } from "lucide-react";
 
 export interface AdminUserItem {
   id: string;
   email: string;
   role: "USER" | "ADMIN";
   subscriptionStatus: "ACTIVE" | "INACTIVE" | "CANCELED";
+  subscriptionSource: "STRIPE" | "MANUAL_OVERRIDE";
   currentPeriodEnd: string | null;
   createdAt: string;
 }
@@ -20,15 +21,38 @@ interface UserManagementTableProps {
 export function UserManagementTable({ users }: UserManagementTableProps) {
   const [isPending, startTransition] = useTransition();
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE" | "CANCELED" | "MANUAL">("ALL");
+  const [reasonInput, setReasonInput] = useState<{ [userId: string]: string }>({});
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
+  // Filtered users
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      const matchesSearch =
+        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.id.toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      if (statusFilter === "ALL") return true;
+      if (statusFilter === "ACTIVE") return u.subscriptionStatus === "ACTIVE";
+      if (statusFilter === "INACTIVE") return u.subscriptionStatus === "INACTIVE";
+      if (statusFilter === "CANCELED") return u.subscriptionStatus === "CANCELED";
+      if (statusFilter === "MANUAL") return u.subscriptionSource === "MANUAL_OVERRIDE";
+      return true;
+    });
+  }, [users, searchQuery, statusFilter]);
+
   const handleGrant = (userId: string, email: string) => {
+    const reason = reasonInput[userId] || "Admin manual override clearance granted.";
     setActiveActionId(`grant-${userId}`);
     setMessage(null);
+
     startTransition(async () => {
       try {
-        await grantManualVip(userId);
-        setMessage({ text: `Granted 30-day VIP pass to ${email}`, type: "success" });
+        await grantManualVip(userId, reason);
+        setMessage({ text: `Granted 30-day VIP pass to ${email} (Reason: ${reason})`, type: "success" });
       } catch (err) {
         setMessage({
           text: err instanceof Error ? err.message : "Failed to grant VIP",
@@ -41,12 +65,14 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
   };
 
   const handleRevoke = (userId: string, email: string) => {
+    const reason = reasonInput[userId] || "Admin manual VIP revocation.";
     setActiveActionId(`revoke-${userId}`);
     setMessage(null);
+
     startTransition(async () => {
       try {
-        await revokeVip(userId);
-        setMessage({ text: `Revoked VIP status for ${email}`, type: "success" });
+        await revokeVip(userId, reason);
+        setMessage({ text: `Revoked VIP clearance for ${email} (Reason: ${reason})`, type: "success" });
       } catch (err) {
         setMessage({
           text: err instanceof Error ? err.message : "Failed to revoke VIP",
@@ -60,6 +86,41 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
 
   return (
     <div className="space-y-4">
+      {/* Search & Filter Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-terminal-card/80 p-3 rounded-lg border border-terminal-border">
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
+          <Search className="w-4 h-4 text-terminal-subtext absolute left-3 top-2.5 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search operator email or UID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-terminal-surface border border-terminal-border focus:border-terminal-gold rounded pl-9 pr-3 py-1.5 text-xs text-white placeholder-terminal-subtext/50 outline-none font-mono"
+          />
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto text-[10px]">
+          <span className="text-terminal-subtext mr-1 flex items-center gap-1 font-bold">
+            <Filter className="w-3 h-3 text-terminal-gold" /> FILTER:
+          </span>
+          {(["ALL", "ACTIVE", "INACTIVE", "CANCELED", "MANUAL"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setStatusFilter(tab)}
+              className={`px-2 py-1 rounded font-bold uppercase transition cursor-pointer ${
+                statusFilter === tab
+                  ? "bg-terminal-gold text-terminal-black"
+                  : "bg-terminal-surface text-terminal-subtext hover:text-white"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {message && (
         <div
           className={`p-3 rounded-lg text-xs font-mono border flex items-center gap-2 ${
@@ -81,22 +142,23 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
         <table className="w-full text-left font-mono">
           <thead>
             <tr className="text-terminal-subtext border-b border-terminal-border text-[11px] uppercase tracking-wider">
-              <th className="pb-3 px-3">Email</th>
+              <th className="pb-3 px-3">Email & UID</th>
               <th className="pb-3 px-3">Role</th>
-              <th className="pb-3 px-3">Subscription Status</th>
-              <th className="pb-3 px-3">Current Period Expiry</th>
-              <th className="pb-3 px-3 text-right">Actions</th>
+              <th className="pb-3 px-3">Status</th>
+              <th className="pb-3 px-3">Source</th>
+              <th className="pb-3 px-3">Current Expiry</th>
+              <th className="pb-3 px-3 text-right">Actions & Audit Reason</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-terminal-border/40 text-xs">
-            {users.length === 0 ? (
+            {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-terminal-subtext">
-                  No registered users detected in database.
+                <td colSpan={6} className="py-8 text-center text-terminal-subtext">
+                  No operators match the current search / filter criteria.
                 </td>
               </tr>
             ) : (
-              users.map((u) => {
+              filteredUsers.map((u) => {
                 const isActive = u.subscriptionStatus === "ACTIVE";
                 const isGranting = activeActionId === `grant-${u.id}`;
                 const isRevoking = activeActionId === `revoke-${u.id}`;
@@ -108,7 +170,7 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
                       <div className="flex flex-col">
                         <span>{u.email}</span>
                         <span className="text-[10px] text-terminal-subtext font-normal">
-                          UID: {u.id.slice(0, 12)}...
+                          UID: {u.id.slice(0, 14)}...
                         </span>
                       </div>
                     </td>
@@ -150,6 +212,19 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
                       </span>
                     </td>
 
+                    {/* Subscription Source */}
+                    <td className="py-3 px-3">
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase border ${
+                          u.subscriptionSource === "MANUAL_OVERRIDE"
+                            ? "bg-terminal-gold/15 text-terminal-gold border-terminal-gold/30"
+                            : "bg-terminal-card text-terminal-subtext border-terminal-border"
+                        }`}
+                      >
+                        {u.subscriptionSource === "MANUAL_OVERRIDE" ? "VIP OVERRIDE" : "STRIPE"}
+                      </span>
+                    </td>
+
                     {/* Current Period Expiry */}
                     <td className="py-3 px-3 text-terminal-subtext text-[11px] tabular-nums">
                       {u.currentPeriodEnd ? (
@@ -168,12 +243,23 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
 
                     {/* Actions */}
                     <td className="py-3 px-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-2">
+                        {/* Audit Reason Input */}
+                        <input
+                          type="text"
+                          placeholder="Audit reason..."
+                          value={reasonInput[u.id] || ""}
+                          onChange={(e) =>
+                            setReasonInput((prev) => ({ ...prev, [u.id]: e.target.value }))
+                          }
+                          className="w-32 bg-terminal-black border border-terminal-border focus:border-terminal-gold rounded px-2 py-1 text-[10px] text-white outline-none"
+                        />
+
                         {/* Grant Manual VIP Button */}
                         <button
                           onClick={() => handleGrant(u.id, u.email)}
                           disabled={isPending}
-                          className={`px-2.5 py-1.5 rounded text-[11px] font-bold tracking-wider uppercase border transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                          className={`px-2.5 py-1 rounded text-[10px] font-bold tracking-wider uppercase border transition flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                             isActive
                               ? "bg-terminal-card hover:bg-terminal-gold/20 text-terminal-gold border-terminal-border hover:border-terminal-gold/40"
                               : "bg-terminal-gold hover:bg-amber-400 text-terminal-black border-terminal-gold shadow-[0_0_12px_rgba(245,158,11,0.25)]"
@@ -185,7 +271,7 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
                           ) : (
                             <ShieldCheck className="w-3 h-3" />
                           )}
-                          <span>{isActive ? "RENEW VIP (+30D)" : "GRANT 30-DAY VIP"}</span>
+                          <span>{isActive ? "+30D" : "VIP"}</span>
                         </button>
 
                         {/* Revoke VIP Button */}
@@ -193,7 +279,7 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
                           <button
                             onClick={() => handleRevoke(u.id, u.email)}
                             disabled={isPending}
-                            className="px-2.5 py-1.5 rounded text-[11px] font-bold tracking-wider uppercase bg-terminal-black hover:bg-terminal-red/20 text-terminal-red border border-terminal-red/30 hover:border-terminal-red/60 transition flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-2 py-1 rounded text-[10px] font-bold tracking-wider uppercase bg-terminal-black hover:bg-terminal-red/20 text-terminal-red border border-terminal-red/30 hover:border-terminal-red/60 transition flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Revoke subscription clearance immediately"
                           >
                             {isRevoking ? (

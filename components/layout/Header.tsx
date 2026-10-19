@@ -21,6 +21,10 @@ export function Header({ session }: HeaderProps) {
   const navRoutes = [
     { label: "MARKET OVERVIEW", href: "/" },
     { label: "RADAR TERMINAL", href: "/terminal" },
+    { label: "PRICING", href: "/pricing" },
+    ...(session?.user
+      ? [{ label: "MY ACCOUNT", href: "/account" }]
+      : []),
     ...(session?.user?.role === "ADMIN"
       ? [{ label: "SYS ADMIN", href: "/admin" }]
       : []),

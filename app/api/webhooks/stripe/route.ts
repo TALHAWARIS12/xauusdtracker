@@ -51,11 +51,37 @@ export async function POST(req: NextRequest) {
             },
             data: {
               status: "ACTIVE",
+              source: "STRIPE",
               stripeCustomerId: customerId,
               stripeSubscriptionId: subscriptionId,
               currentPeriodEnd: new Date(periodEndSec * 1000),
             },
           });
+
+          // Idempotently record the payment transaction
+          if (userId) {
+            const amountUsd = checkoutSession.amount_total
+              ? checkoutSession.amount_total / 100
+              : 99.0;
+            const currency = (checkoutSession.currency || "USD").toUpperCase();
+
+            await prisma.payment.upsert({
+              where: { providerReference: checkoutSession.id },
+              create: {
+                userId,
+                provider: "STRIPE",
+                providerReference: checkoutSession.id,
+                amount: amountUsd,
+                currency,
+                status: "COMPLETED",
+                confirmedAt: new Date(),
+              },
+              update: {
+                status: "COMPLETED",
+                confirmedAt: new Date(),
+              },
+            });
+          }
         }
         break;
       }

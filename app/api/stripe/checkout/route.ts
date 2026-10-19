@@ -68,8 +68,8 @@ export async function POST() {
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}/terminal?session=success`,
-      cancel_url: `${baseUrl}/terminal?session=cancelled`,
+      success_url: `${baseUrl}/checkout/result?session=success`,
+      cancel_url: `${baseUrl}/checkout/result?session=cancelled`,
       metadata: {
         userId,
       },

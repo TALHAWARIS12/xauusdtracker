@@ -18,22 +18,105 @@ enum SubStatus {
   CANCELED
 }
 
+enum SubscriptionSource {
+  STRIPE
+  MANUAL_OVERRIDE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum SetupDirection {
+  BULLISH
+  BEARISH
+}
+
+enum SetupStatus {
+  ACTIVE
+  INVALIDATED
+  COMPLETED
+}
+
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  passwordHash  String
-  role          Role          @default(USER)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  subscription  Subscription?
+  id                        String             @id @default(cuid())
+  email                     String             @unique
+  passwordHash              String
+  role                      Role               @default(USER)
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  subscription              Subscription?
+  payments                  Payment[]
+  adminAuditEventsPerformed AdminAuditEvent[]  @relation("AdminActor")
+  adminAuditEventsTarget    AdminAuditEvent[]  @relation("AdminTarget")
+}
+
+model Plan {
+  id             String         @id @default(cuid())
+  name           String         @unique
+  priceUsd       Float          @default(99.0)
+  billingInterval String        @default("month")
+  features       String[]       @default([])
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  subscriptions  Subscription[]
 }
 
 model Subscription {
-  id                   String    @id @default(cuid())
-  userId               String    @unique
-  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  stripeCustomerId     String?   @unique
-  stripeSubscriptionId String?   @unique
-  status               SubStatus @default(INACTIVE)
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId               String?
+  plan                 Plan?              @relation(fields: [planId], references: [id])
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  status               SubStatus          @default(INACTIVE)
+  source               SubscriptionSource @default(STRIPE)
   currentPeriodEnd     DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String        @default("STRIPE")
+  providerReference String?       @unique
+  amount            Float
+  currency          String        @default("USD")
+  status            PaymentStatus @default(COMPLETED)
+  createdAt         DateTime      @default(now())
+  confirmedAt       DateTime?
+}
+
+model TradeSetup {
+  id          String         @id @default(cuid())
+  symbol      String         @default("XAUUSD")
+  timeframe   String         @default("1M")
+  direction   SetupDirection
+  entryMin    Float
+  entryMax    Float
+  stopLoss    Float
+  takeProfit  Float
+  riskReward  Float
+  score       Int
+  rationale   String
+  status      SetupStatus    @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+}
+
+model AdminAuditEvent {
+  id           String   @id @default(cuid())
+  adminUserId  String
+  adminUser    User     @relation("AdminActor", fields: [adminUserId], references: [id], onDelete: Cascade)
+  targetUserId String
+  targetUser   User     @relation("AdminTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  action       String
+  reason       String
+  createdAt    DateTime @default(now())
 }
