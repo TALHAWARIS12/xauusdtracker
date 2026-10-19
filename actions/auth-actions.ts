@@ -4,6 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signIn, signOut } from "@/auth";
+import { redirect } from "next/navigation";
 
 const registerSchema = z
   .object({
@@ -120,12 +121,17 @@ export async function loginUser(
   }
 
   try {
-    await signIn("credentials", {
+    const result = await signIn("credentials", {
       email: email.trim().toLowerCase(),
       password,
-      redirectTo: "/terminal",
+      redirect: false,
     });
-    return null;
+
+    if (typeof result === "string" && result.includes("error=")) {
+      return {
+        error: "Invalid access credentials. Terminal clearance rejected.",
+      };
+    }
   } catch (error) {
     // Next.js redirection works by throwing a NEXT_REDIRECT error
     if (
@@ -142,6 +148,9 @@ export async function loginUser(
       error: "Invalid access credentials. Terminal clearance rejected.",
     };
   }
+
+  // Issue relative redirect to keep the operator session on the current active domain
+  redirect("/terminal");
 }
 
 

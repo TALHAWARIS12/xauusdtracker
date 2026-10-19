@@ -12,8 +12,8 @@ export default auth((req) => {
   // Protect /terminal route: user must be authenticated
   if (pathname.startsWith("/terminal")) {
     if (!isLoggedIn) {
-      const loginUrl = new URL("/login", req.nextUrl.origin);
-      loginUrl.searchParams.set("callbackUrl", req.nextUrl.href);
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("callbackUrl", "/terminal");
       return NextResponse.redirect(loginUrl);
     }
   }
@@ -21,12 +21,12 @@ export default auth((req) => {
   // Protect /admin route: user must be authenticated and have ADMIN role
   if (pathname.startsWith("/admin")) {
     if (!isLoggedIn) {
-      const loginUrl = new URL("/login", req.nextUrl.origin);
-      loginUrl.searchParams.set("callbackUrl", req.nextUrl.href);
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("callbackUrl", "/admin");
       return NextResponse.redirect(loginUrl);
     }
     if (userRole !== "ADMIN") {
-      return NextResponse.redirect(new URL("/terminal", req.nextUrl.origin));
+      return NextResponse.redirect(new URL("/terminal", req.url));
     }
   }
 
