@@ -286,8 +286,8 @@ export function useMarketData(): MarketDataState {
 
     initFeed();
 
-    // 24h Stats polling
-    const statsInterval = setInterval(async () => {
+    // 24h Stats: fetch immediately, then refresh periodically
+    const refreshStats = async () => {
       if (isCancelled) return;
       try {
         const stats = await fetch24hStats();
@@ -295,7 +295,9 @@ export function useMarketData(): MarketDataState {
           setMarketState((prev) => ({ ...prev, stats24h: stats }));
         }
       } catch {}
-    }, STATS_24H_REFRESH_MS);
+    };
+    void refreshStats();
+    const statsInterval = setInterval(refreshStats, STATS_24H_REFRESH_MS);
 
     return () => {
       isCancelled = true;

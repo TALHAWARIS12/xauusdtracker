@@ -3,58 +3,150 @@
 @tailwind utilities;
 
 :root {
-  --color-terminal-black: #0B0E14;
-  --color-terminal-surface: #121824;
-  --color-terminal-card: #182030;
-  --color-terminal-border: #243048;
-  --color-terminal-green: #00E676;
-  --color-terminal-red: #FF334B;
-  --color-terminal-gold: #F59E0B;
-  --color-terminal-subtext: #94A3B8;
+  --bg: #06080f;
+  --gold: #f2b93b;
 }
 
-body {
-  background-color: #0B0E14;
-  color: #E2E8F0;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  overflow-x: hidden;
-  letter-spacing: -0.01em;
-}
-
-/* Custom Bloomberg Terminal Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #0B0E14;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #243048;
-  border-radius: 2px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #F59E0B;
-}
-
-/* Terminal text selection */
-::selection {
-  background-color: #F59E0B;
-  color: #0B0E14;
-}
-
-@keyframes terminal-pulse {
-  0%, 100% {
-    opacity: 1;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    color-scheme: dark;
   }
-  50% {
-    opacity: 0.3;
+
+  body {
+    @apply bg-ink-950 text-slate-200 font-sans antialiased;
+    font-feature-settings: "cv11", "ss01", "ss03";
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(1200px 600px at 10% -10%, rgba(242, 185, 59, 0.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(56, 189, 248, 0.06), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight text-white;
+  }
+
+  ::selection {
+    background-color: rgba(242, 185, 59, 0.85);
+    color: #06080f;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1a2338;
+    border-radius: 999px;
+    border: 3px solid #06080f;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #243049;
   }
 }
 
-.terminal-blink {
-  animation: terminal-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+@layer components {
+  .container-app {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .card {
+    @apply relative rounded-2xl border border-white/[0.06] bg-ink-900/80 shadow-card backdrop-blur-xl;
+  }
+
+  .card-muted {
+    @apply rounded-xl border border-white/[0.05] bg-white/[0.02];
+  }
+
+  .card-title {
+    @apply flex items-center gap-2 text-sm font-semibold text-white;
+  }
+
+  .card-subtitle {
+    @apply text-xs text-slate-400;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-gold-300;
+  }
+
+  .text-gradient-gold {
+    @apply bg-gradient-to-r from-gold-200 via-gold-300 to-gold-500 bg-clip-text text-transparent;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-gold-300 to-gold-500 px-5 py-2.5 text-sm font-semibold text-ink-950 shadow-gold transition duration-200 hover:brightness-110 hover:-translate-y-px active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-slate-100 transition duration-200 hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/[0.06] hover:text-white;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold leading-none;
+  }
+
+  .badge-live {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-bull-400/25 bg-bull-400/10 px-2.5 py-1 text-[11px] font-semibold leading-none tracking-wide text-bull-300;
+  }
+
+  .badge-pro {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-gold-300/40 bg-gradient-to-r from-gold-300/20 to-gold-500/10 px-2.5 py-1 text-[11px] font-bold leading-none tracking-wide text-gold-200;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-white/10 bg-ink-850 px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-gold-400/60 focus:ring-4 focus:ring-gold-400/10;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-slate-300;
+  }
+
+  .stat-label {
+    @apply text-xs font-medium text-slate-400;
+  }
+
+  .stat-value {
+    @apply font-display text-xl font-semibold tabular-nums text-white;
+  }
+
+  .skeleton {
+    @apply animate-shimmer rounded-md bg-[length:200%_100%];
+    background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 100%);
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

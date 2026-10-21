@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogIn, LogOut, User as UserIcon, Shield, Terminal, Activity } from "lucide-react";
+import { useState } from "react";
+import { Crown, LogOut, Menu, Sparkles, X } from "lucide-react";
 import { handleSignOut } from "@/actions/auth-actions";
+import { BrandLogo } from "@/components/layout/BrandLogo";
 
 interface HeaderProps {
   session?: {
@@ -13,159 +15,161 @@ interface HeaderProps {
       role?: "USER" | "ADMIN";
     };
   } | null;
+  isPro?: boolean;
 }
 
-export function Header({ session }: HeaderProps) {
+export function Header({ session, isPro = false }: HeaderProps) {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const navRoutes = [
-    { label: "MARKET OVERVIEW", href: "/" },
-    { label: "RADAR TERMINAL", href: "/terminal" },
-    { label: "PRICING", href: "/pricing" },
-    ...(session?.user
-      ? [{ label: "MY ACCOUNT", href: "/account" }]
-      : []),
-    ...(session?.user?.role === "ADMIN"
-      ? [{ label: "SYS ADMIN", href: "/admin" }]
-      : []),
+    { label: "Overview", href: "/" },
+    { label: "Dashboard", href: "/dashboard" },
+    { label: "Pricing", href: "/pricing" },
+    ...(session?.user ? [{ label: "Account", href: "/account" }] : []),
+    ...(session?.user?.role === "ADMIN" ? [{ label: "Admin", href: "/admin" }] : []),
   ];
 
-  return (
-    <header className="w-full bg-terminal-surface border-b border-terminal-border text-xs font-mono select-none sticky top-0 z-50">
-      {/* Top Bloomberg ticker bar */}
-      <div className="bg-terminal-black/90 px-4 py-1 border-b border-terminal-border/60 flex items-center justify-between text-[11px] text-terminal-subtext">
-        <div className="flex items-center gap-3">
-          <span className="text-terminal-gold font-bold tracking-wider">XAU/USD</span>
-          <span className="text-terminal-green font-semibold">$2,714.85</span>
-          <span className="text-terminal-green flex items-center gap-1">
-            ▲ +0.64% (+17.20)
-          </span>
-          <span className="hidden md:inline text-terminal-border">|</span>
-          <span className="hidden md:inline">24H HIGH: <span className="text-gray-300">2,722.40</span></span>
-          <span className="hidden md:inline">24H LOW: <span className="text-gray-300">2,698.10</span></span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-widest text-terminal-subtext/70 hidden sm:inline">SYSTEM STATUS:</span>
-          <span className="inline-flex items-center gap-1 text-[10px] text-terminal-green px-1.5 py-0.5 rounded bg-terminal-green/10 border border-terminal-green/20">
-            NOMINAL
-          </span>
-        </div>
-      </div>
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
 
-      {/* Main navigation header */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-        {/* Brand & Live Radar Dot */}
+  const initials = (session?.user?.email ?? "?").slice(0, 1).toUpperCase();
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-white/[0.06] bg-ink-950/75 backdrop-blur-xl">
+      <div className="container-app flex h-16 items-center justify-between gap-4">
+        {/* Brand + live status */}
         <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="p-1.5 bg-terminal-card border border-terminal-border rounded group-hover:border-terminal-gold transition-colors">
-              <Terminal className="w-5 h-5 text-terminal-gold" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-extrabold tracking-wider text-white text-sm group-hover:text-terminal-gold transition-colors">
-                XAU/USD INTELLIGENCE TERMINAL
-              </span>
-              <span className="text-[10px] text-terminal-subtext tracking-widest uppercase">
-                BLOOMBERG PROTOCOL // v4.2
-              </span>
-            </div>
+          <Link href="/" className="group flex items-center gap-2.5" aria-label="XAUUSD Tracker home">
+            <BrandLogo className="h-8 w-8 transition-transform duration-300 group-hover:rotate-12" />
+            <span className="font-display text-[15px] font-bold tracking-tight text-white">
+              XAUUSD<span className="text-gold-300"> Tracker</span>
+            </span>
           </Link>
 
-          {/* Blinking green LIVE radar dot */}
-          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-terminal-black/80 rounded border border-terminal-border/80">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-terminal-green opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-terminal-green shadow-[0_0_8px_#00E676]"></span>
+          <span className="badge-live hidden sm:inline-flex" id="header-live-badge">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bull-400 opacity-70" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-bull-400" />
             </span>
-            <span className="text-[11px] font-bold text-terminal-green tracking-wider">
-              LIVE RADAR
-            </span>
-          </div>
+            LIVE MARKET
+          </span>
         </div>
 
-        {/* Route Indicators */}
-        <nav className="hidden md:flex items-center gap-1">
-          {navRoutes.map((route) => {
-            const isActive =
-              route.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(route.href);
-            return (
-              <Link
-                key={route.href}
-                href={route.href}
-                className={`px-3 py-1.5 rounded transition-all duration-150 flex items-center gap-1.5 ${
-                  isActive
-                    ? "bg-terminal-card border border-terminal-gold text-terminal-gold shadow-[0_0_10px_rgba(245,158,11,0.15)] font-bold"
-                    : "text-terminal-subtext hover:text-white hover:bg-terminal-card/50 border border-transparent"
-                }`}
-              >
-                {isActive && <span className="text-terminal-gold">›</span>}
-                <span>{route.label}</span>
-              </Link>
-            );
-          })}
+        {/* Desktop navigation */}
+        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+          {navRoutes.map((route) => (
+            <Link
+              key={route.href}
+              href={route.href}
+              id={`nav-${route.label.toLowerCase()}`}
+              className={`relative rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActive(route.href) ? "text-white" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              {route.label}
+              {isActive(route.href) && (
+                <span className="absolute inset-x-3 -bottom-[17px] h-[2px] rounded-full bg-gradient-to-r from-gold-300 to-gold-500" />
+              )}
+            </Link>
+          ))}
         </nav>
 
-        {/* Auth Section */}
-        <div className="flex items-center gap-3">
-          {session?.user ? (
-            <div className="flex items-center gap-3">
-              {/* User Email Badge */}
-              <div className="flex items-center gap-2 px-2.5 py-1 bg-terminal-card border border-terminal-border rounded text-terminal-subtext">
-                <UserIcon className="w-3.5 h-3.5 text-terminal-gold" />
-                <span className="text-gray-200 max-w-[140px] truncate">
-                  {session.user.email}
-                </span>
-                <span
-                  className={`text-[9px] px-1 py-0.2 rounded font-bold uppercase ${
-                    session.user.role === "ADMIN"
-                      ? "bg-terminal-gold/20 text-terminal-gold border border-terminal-gold/40"
-                      : "bg-terminal-green/20 text-terminal-green border border-terminal-green/40"
-                  }`}
-                >
-                  {session.user.role}
-                </span>
-              </div>
+        {/* Right actions */}
+        <div className="flex items-center gap-2">
+          {isPro ? (
+            <span className="badge-pro" id="header-pro-badge" title="Your Pro access is active">
+              <Crown className="h-3.5 w-3.5" />
+              PRO MEMBER
+            </span>
+          ) : (
+            <Link href="/pricing" className="btn-ghost hidden text-gold-300 hover:text-gold-200 sm:inline-flex" id="header-upgrade">
+              <Sparkles className="h-4 w-4" />
+              Upgrade
+            </Link>
+          )}
 
-              {/* Logout Button */}
+          {session?.user ? (
+            <div className="hidden items-center gap-2 md:flex">
+              <Link
+                href="/account"
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-1 pl-1 pr-3 text-sm text-slate-200 transition hover:border-white/20"
+                title={session.user.email ?? undefined}
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-gold-300 to-gold-600 text-xs font-bold text-ink-950">
+                  {initials}
+                </span>
+                <span className="max-w-[140px] truncate">{session.user.email}</span>
+              </Link>
               <form action={handleSignOut}>
-                <button
-                  type="submit"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-terminal-black hover:bg-terminal-red/10 border border-terminal-border hover:border-terminal-red/50 text-terminal-subtext hover:text-terminal-red rounded transition-all cursor-pointer"
-                  title="Disconnect terminal session"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">LOGOUT</span>
+                <button type="submit" className="btn-ghost" title="Sign out" id="header-signout">
+                  <LogOut className="h-4 w-4" />
+                  <span className="sr-only">Sign out</span>
                 </button>
               </form>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
-                  pathname === "/login"
-                    ? "bg-terminal-card border border-terminal-gold text-terminal-gold font-bold"
-                    : "bg-terminal-black border border-terminal-border text-terminal-subtext hover:text-white hover:border-terminal-gold"
-                }`}
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>LOGIN</span>
+            <div className="hidden items-center gap-2 md:flex">
+              <Link href="/login" className="btn-ghost" id="header-signin">
+                Sign in
               </Link>
-              <Link
-                href="/register"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
-                  pathname === "/register"
-                    ? "bg-terminal-gold text-terminal-black font-bold border border-terminal-gold"
-                    : "bg-terminal-gold/90 hover:bg-terminal-gold text-terminal-black font-bold border border-terminal-gold shadow-[0_0_12px_rgba(245,158,11,0.2)]"
-                }`}
-              >
-                <span>SIGN UP</span>
+              <Link href="/register" className="btn-primary px-4 py-2" id="header-get-started">
+                Get started
               </Link>
             </div>
           )}
+
+          <button
+            type="button"
+            className="btn-ghost md:hidden"
+            onClick={() => setMobileOpen((o) => !o)}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-nav"
+            id="header-mobile-toggle"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <span className="sr-only">Toggle navigation</span>
+          </button>
         </div>
       </div>
+
+      {/* Mobile navigation */}
+      {mobileOpen && (
+        <div id="mobile-nav" className="animate-fade-in border-t border-white/[0.06] bg-ink-950/95 md:hidden">
+          <nav className="container-app flex flex-col gap-1 py-3" aria-label="Mobile">
+            {navRoutes.map((route) => (
+              <Link
+                key={route.href}
+                href={route.href}
+                onClick={() => setMobileOpen(false)}
+                className={`rounded-lg px-3 py-2.5 text-sm font-medium ${
+                  isActive(route.href) ? "bg-white/[0.06] text-white" : "text-slate-300"
+                }`}
+              >
+                {route.label}
+              </Link>
+            ))}
+            <div className="mt-2 flex gap-2 border-t border-white/[0.06] pt-3">
+              {session?.user ? (
+                <form action={handleSignOut} className="w-full">
+                  <button type="submit" className="btn-secondary w-full">
+                    <LogOut className="h-4 w-4" /> Sign out
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <Link href="/login" className="btn-secondary flex-1" onClick={() => setMobileOpen(false)}>
+                    Sign in
+                  </Link>
+                  <Link href="/register" className="btn-primary flex-1" onClick={() => setMobileOpen(false)}>
+                    Get started
+                  </Link>
+                </>
+              )}
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

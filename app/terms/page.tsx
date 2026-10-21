@@ -39,7 +39,7 @@ export default function TermsPage() {
             3. SUBSCRIPTIONS, BILLING & CANCELLATION
           </h2>
           <p>
-            Subscriptions are billed in advance on a recurring monthly basis ($99.00 USD/month). You may cancel your subscription at any time prior to the end of your billing cycle. Cancellation takes effect at the expiration of your current prepaid period, during which time access to the terminal remains active. Refunds are processed at administrative discretion in accordance with applicable consumer laws.
+            Subscriptions are billed in advance according to the selected plan interval ($3/day, $10/week, $28/month, or $88/year). You may cancel your subscription at any time prior to the end of your billing cycle. Cancellation takes effect at the expiration of your current prepaid period, during which time access to the platform remains active. Refunds are processed at administrative discretion in accordance with applicable consumer laws.
           </p>
         </section>
 
@@ -59,8 +59,8 @@ export default function TermsPage() {
 
         <div className="pt-4 border-t border-terminal-border flex justify-between items-center text-xs">
           <span className="text-terminal-subtext">Version 1.0 · October 2026</span>
-          <Link href="/terminal" className="text-terminal-gold hover:underline font-bold">
-            Return to Radar Terminal ›
+          <Link href="/dashboard" className="text-terminal-gold hover:underline font-bold">
+            Return to Dashboard ›
           </Link>
         </div>
       </div>

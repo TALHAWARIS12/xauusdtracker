@@ -2,7 +2,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { User, Shield, Calendar, CreditCard, Terminal, ArrowRight, Zap, CheckCircle2, XCircle } from "lucide-react";
+import { User, Shield, CreditCard, LayoutDashboard, Zap, CheckCircle2, XCircle } from "lucide-react";
+import { getSubscriptionStatus } from "@/lib/subscription";
 
 export default async function AccountPage() {
   const session = await auth();
@@ -29,67 +30,67 @@ export default async function AccountPage() {
   }
 
   const sub = user.subscription;
-  const isActive = sub?.status === "ACTIVE";
+  const isSubscribed = await getSubscriptionStatus(user.id);
 
   return (
-    <div className="flex-1 bg-terminal-black text-xs font-mono p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto w-full space-y-6 select-none">
+    <div className="container-app py-10 max-w-4xl space-y-8">
       {/* Header Banner */}
-      <div className="bg-terminal-surface border border-terminal-border rounded-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="p-2.5 bg-terminal-card border border-terminal-gold/40 rounded-lg text-terminal-gold">
-            <User className="w-6 h-6" />
+      <div className="card p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-400/10 border border-gold-300/30 text-gold-300 shadow-gold">
+            <User className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="font-extrabold text-white text-base tracking-wider">
-              OPERATOR ACCOUNT PROFILE
+            <h1 className="font-display text-xl font-bold text-white tracking-tight">
+              Account Overview
             </h1>
-            <p className="text-terminal-subtext text-xs mt-0.5">
-              Clearance Identifier: <span className="text-gray-200">{user.email}</span>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Email: <span className="text-white font-medium">{user.email}</span>
             </p>
           </div>
         </div>
 
         <Link
-          href="/terminal"
-          className="px-4 py-2 bg-terminal-gold hover:bg-amber-400 text-terminal-black font-extrabold rounded flex items-center gap-2 transition"
+          href="/dashboard"
+          className="btn-primary px-5 py-2.5 text-xs font-semibold shadow-gold self-start md:self-auto"
         >
-          <Terminal className="w-4 h-4" />
-          <span>OPEN TERMINAL</span>
+          <LayoutDashboard className="h-4 w-4" />
+          <span>Open Dashboard</span>
         </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Account Credentials Profile */}
-        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-5 space-y-4">
-          <div className="flex items-center gap-2 text-white font-bold text-xs uppercase border-b border-terminal-border pb-3">
-            <Shield className="w-4 h-4 text-terminal-gold" />
-            <span>OPERATOR CREDENTIALS</span>
+        {/* Credentials Profile */}
+        <div className="card p-6 space-y-4">
+          <div className="flex items-center gap-2 text-white font-bold text-xs uppercase border-b border-white/[0.06] pb-3">
+            <Shield className="h-4 w-4 text-gold-300" />
+            <span>Profile Details</span>
           </div>
 
-          <div className="space-y-3 bg-terminal-card p-4 rounded border border-terminal-border text-[11px]">
+          <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs">
             <div className="flex justify-between">
-              <span className="text-terminal-subtext">EMAIL IDENTIFIER:</span>
-              <span className="text-white font-bold">{user.email}</span>
+              <span className="text-slate-400">Email Address:</span>
+              <span className="text-white font-medium">{user.email}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-terminal-subtext">NODE UID:</span>
-              <span className="text-gray-300 font-mono">{user.id}</span>
+              <span className="text-slate-400">Account ID:</span>
+              <span className="text-slate-300 font-mono text-[11px]">{user.id}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-terminal-subtext">SECURITY ROLE:</span>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400">Role:</span>
               <span
-                className={`px-1.5 py-0.2 rounded font-bold uppercase ${
+                className={`badge text-[10px] uppercase font-bold ${
                   user.role === "ADMIN"
-                    ? "bg-terminal-gold/20 text-terminal-gold border border-terminal-gold/40"
-                    : "bg-terminal-green/20 text-terminal-green border border-terminal-green/40"
+                    ? "bg-gold-400/10 text-gold-300 border border-gold-400/30"
+                    : "bg-bull-400/10 text-bull-300 border border-bull-400/30"
                 }`}
               >
                 {user.role}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-terminal-subtext">COMMISSION DATE:</span>
-              <span className="text-gray-300">
+              <span className="text-slate-400">Member Since:</span>
+              <span className="text-slate-300">
                 {new Date(user.createdAt).toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "short",
@@ -100,62 +101,55 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        {/* Subscription / Clearance Status */}
-        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-5 space-y-4">
-          <div className="flex items-center gap-2 text-white font-bold text-xs uppercase border-b border-terminal-border pb-3">
-            <CreditCard className="w-4 h-4 text-terminal-gold" />
-            <span>INSTITUTIONAL ACCESS STATUS</span>
+        {/* Subscription Status */}
+        <div className="card p-6 space-y-4">
+          <div className="flex items-center gap-2 text-white font-bold text-xs uppercase border-b border-white/[0.06] pb-3">
+            <CreditCard className="h-4 w-4 text-gold-300" />
+            <span>Subscription Status</span>
           </div>
 
-          <div className="space-y-3 bg-terminal-card p-4 rounded border border-terminal-border text-[11px]">
+          <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs">
             <div className="flex justify-between items-center">
-              <span className="text-terminal-subtext">CLEARANCE STATUS:</span>
+              <span className="text-slate-400">Clearance Status:</span>
               <span
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                  isActive
-                    ? "bg-terminal-green/20 text-terminal-green border-terminal-green/40"
-                    : "bg-terminal-red/20 text-terminal-red border-terminal-red/40"
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase border ${
+                  isSubscribed
+                    ? "bg-bull-400/10 text-bull-300 border-bull-400/30"
+                    : "bg-bear-400/10 text-bear-300 border-bear-400/30"
                 }`}
               >
-                {isActive ? (
+                {isSubscribed ? (
                   <>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>ACTIVE CLEARANCE</span>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Pro Active</span>
                   </>
                 ) : (
                   <>
-                    <XCircle className="w-3.5 h-3.5" />
-                    <span>INACTIVE / RESTRICTED</span>
+                    <XCircle className="h-3.5 w-3.5" />
+                    <span>Free Plan</span>
                   </>
                 )}
               </span>
             </div>
 
             <div className="flex justify-between">
-              <span className="text-terminal-subtext">TIER / PLAN:</span>
-              <span className="text-white font-bold">
-                {sub?.plan?.name || "Institutional Intelligence Clearance"}
+              <span className="text-slate-400">Active Tier:</span>
+              <span className="text-white font-medium">
+                {sub?.plan?.name || (isSubscribed ? "Pro Membership" : "Freemium")}
               </span>
             </div>
 
             <div className="flex justify-between">
-              <span className="text-terminal-subtext">GRANT SOURCE:</span>
-              <span className="text-terminal-gold font-bold">
-                {sub?.source === "MANUAL_OVERRIDE"
-                  ? "VIP MANUAL GRANT (ADMIN)"
-                  : "STRIPE SUBSCRIPTION"}
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-terminal-subtext">CURRENT PERIOD EXPIRY:</span>
-              <span className="text-gray-300">
+              <span className="text-slate-400">Period Expiry:</span>
+              <span className="text-slate-300">
                 {sub?.currentPeriodEnd ? (
                   new Date(sub.currentPeriodEnd).toLocaleDateString("en-US", {
                     year: "numeric",
                     month: "short",
                     day: "numeric",
                   })
+                ) : isSubscribed ? (
+                  "Active (Auto-renew)"
                 ) : (
                   "—"
                 )}
@@ -164,18 +158,18 @@ export default async function AccountPage() {
           </div>
 
           <div className="pt-2">
-            {!isActive ? (
+            {!isSubscribed ? (
               <Link
                 href="/pricing"
-                className="w-full py-2.5 px-4 bg-terminal-gold hover:bg-amber-400 text-terminal-black font-extrabold rounded flex items-center justify-center gap-2 transition"
+                className="btn-primary w-full py-2.5 text-xs font-semibold shadow-gold"
               >
-                <Zap className="w-4 h-4" />
-                <span>UPGRADE TO INSTITUTIONAL CLEARANCE ($99/MO)</span>
+                <Zap className="h-4 w-4" />
+                <span>Upgrade to Pro (from $3/day)</span>
               </Link>
             ) : (
-              <div className="text-[11px] text-terminal-subtext text-center">
-                Your subscription renews automatically. To manage your billing method or cancel, contact admin or visit Stripe Customer Portal.
-              </div>
+              <p className="text-[11px] text-slate-400 text-center">
+                Your subscription is active. All institutional data is unlocked.
+              </p>
             )}
           </div>
         </div>
@@ -183,35 +177,33 @@ export default async function AccountPage() {
 
       {/* Payment History */}
       {user.payments && user.payments.length > 0 && (
-        <div className="bg-terminal-surface border border-terminal-border rounded-lg overflow-hidden">
-          <div className="bg-terminal-card px-4 py-2.5 border-b border-terminal-border">
-            <span className="font-bold text-white text-xs uppercase tracking-wider">
-              RECENT TRANSACTION RECORDS
-            </span>
+        <div className="card overflow-hidden">
+          <div className="border-b border-white/[0.06] bg-white/[0.02] px-6 py-4">
+            <h2 className="text-sm font-semibold text-white">Recent Transactions</h2>
           </div>
-          <div className="p-4 overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
+          <div className="overflow-x-auto p-2">
+            <table className="w-full text-left text-xs">
               <thead>
-                <tr className="text-terminal-subtext border-b border-terminal-border text-[10px] uppercase">
-                  <th className="pb-2">Reference</th>
-                  <th className="pb-2">Amount</th>
-                  <th className="pb-2">Status</th>
-                  <th className="pb-2">Date</th>
+                <tr className="border-b border-white/[0.06] text-slate-400">
+                  <th className="px-4 py-2.5">Reference</th>
+                  <th className="px-4 py-2.5">Amount</th>
+                  <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-terminal-border/40">
+              <tbody className="divide-y divide-white/[0.04] text-slate-300">
                 {user.payments.map((p) => (
                   <tr key={p.id}>
-                    <td className="py-2 text-gray-200">{p.providerReference || p.id}</td>
-                    <td className="py-2 text-white font-bold">
+                    <td className="px-4 py-3 font-mono text-slate-400">{p.providerReference || p.id}</td>
+                    <td className="px-4 py-3 font-bold text-white tabular">
                       ${p.amount.toFixed(2)} {p.currency}
                     </td>
-                    <td className="py-2">
-                      <span className="text-[10px] text-terminal-green bg-terminal-green/10 border border-terminal-green/30 px-1.5 py-0.5 rounded">
+                    <td className="px-4 py-3">
+                      <span className="rounded bg-bull-400/10 px-2 py-0.5 text-[10px] font-semibold text-bull-300 border border-bull-400/20">
                         {p.status}
                       </span>
                     </td>
-                    <td className="py-2 text-terminal-subtext">
+                    <td className="px-4 py-3 text-slate-400">
                       {new Date(p.createdAt).toLocaleDateString()}
                     </td>
                   </tr>

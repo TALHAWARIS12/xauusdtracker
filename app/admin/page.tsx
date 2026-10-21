@@ -28,7 +28,7 @@ export default async function AdminPage() {
 
   // Strict route protection: Only ADMIN role is permitted
   if (session?.user?.role !== "ADMIN") {
-    redirect("/terminal");
+    redirect("/dashboard");
   }
 
   // System KPIs queries
@@ -41,7 +41,7 @@ export default async function AdminPage() {
   });
   const stripeSubs = activeSubs - manualVips;
 
-  const MONTHLY_PLAN_PRICE = 99; // Standard institutional tier ($99/mo)
+  const MONTHLY_PLAN_PRICE = 28; // Standard monthly tier ($28/mo)
   const estimatedMrr = stripeSubs * MONTHLY_PLAN_PRICE;
 
   // Retrieve user directory with subscriptions
@@ -124,10 +124,10 @@ export default async function AdminPage() {
 
         <div className="flex items-center gap-3">
           <Link
-            href="/terminal"
+            href="/dashboard"
             className="px-4 py-2 bg-terminal-card hover:bg-terminal-surface border border-terminal-gold text-terminal-gold rounded-lg transition text-xs font-bold tracking-wider uppercase shadow-[0_0_12px_rgba(245,158,11,0.15)] flex items-center gap-2"
           >
-            <span>‹ RETURN TO TERMINAL</span>
+            <span>‹ RETURN TO DASHBOARD</span>
           </Link>
         </div>
       </div>

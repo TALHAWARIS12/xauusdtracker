@@ -66,8 +66,8 @@ export default function DisclaimerPage() {
 
         <div className="pt-4 border-t border-terminal-border flex justify-between items-center text-xs">
           <span className="text-terminal-subtext">Last updated: October 2026</span>
-          <Link href="/terminal" className="text-terminal-gold hover:underline font-bold">
-            Return to Radar Terminal ›
+          <Link href="/dashboard" className="text-terminal-gold hover:underline font-bold">
+            Return to Dashboard ›
           </Link>
         </div>
       </div>

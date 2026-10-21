@@ -31,10 +31,10 @@ interface TradingChartProps {
 }
 
 const LINE_STYLE: Record<LineKey, { color: string; title: string }> = {
-  buyerTP: { color: "#00E676", title: "BUYER TP" },
-  sellerSL: { color: "#F59E0B", title: "SELLER SL" },
-  buyerSL: { color: "#FF334B", title: "BUYER SL" },
-  sellerTP: { color: "#94A3B8", title: "SELLER TP" },
+  buyerTP: { color: "#34D399", title: "Buyer target" },
+  sellerSL: { color: "#F2B93B", title: "Seller stops" },
+  buyerSL: { color: "#FB7185", title: "Buyer stops" },
+  sellerTP: { color: "#94A3B8", title: "Seller target" },
 };
 const LINE_KEYS: LineKey[] = ["buyerTP", "sellerSL", "buyerSL", "sellerTP"];
 
@@ -67,20 +67,20 @@ export default function TradingChart({ candles, lines, className }: TradingChart
       width: container.clientWidth || 800,
       height: container.clientHeight || 450,
       layout: {
-        background: { type: ColorType.Solid, color: "#0B0E14" },
+        background: { type: ColorType.Solid, color: "rgba(0,0,0,0)" },
         textColor: "#94A3B8",
-        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+        fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
         fontSize: 11,
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: "#1E293B" },
-        horzLines: { color: "#1E293B" },
+        vertLines: { color: "rgba(255,255,255,0.04)" },
+        horzLines: { color: "rgba(255,255,255,0.04)" },
       },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: "#243048" },
+      rightPriceScale: { borderColor: "rgba(255,255,255,0.08)" },
       timeScale: {
-        borderColor: "#243048",
+        borderColor: "rgba(255,255,255,0.08)",
         timeVisible: true,
         secondsVisible: false,
         rightOffset: 6,
@@ -88,11 +88,11 @@ export default function TradingChart({ candles, lines, className }: TradingChart
     });
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#00E676",
-      downColor: "#FF334B",
+      upColor: "#34D399",
+      downColor: "#FB7185",
       borderVisible: false,
-      wickUpColor: "#00E676",
-      wickDownColor: "#FF334B",
+      wickUpColor: "#34D399",
+      wickDownColor: "#FB7185",
       priceFormat: { type: "price", precision: 2, minMove: 0.01 },
     });
 

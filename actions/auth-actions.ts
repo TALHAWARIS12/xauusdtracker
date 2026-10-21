@@ -150,7 +150,7 @@ export async function loginUser(
   }
 
   // Issue relative redirect to keep the operator session on the current active domain
-  redirect("/terminal");
+  redirect("/dashboard");
 }
 
 

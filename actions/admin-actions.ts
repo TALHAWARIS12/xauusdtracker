@@ -53,6 +53,7 @@ export async function grantManualVip(userId: string, reason?: string) {
 
   revalidatePath("/admin");
   revalidatePath("/terminal");
+  revalidatePath("/dashboard");
 
   return { success: true };
 }
@@ -101,6 +102,7 @@ export async function revokeVip(userId: string, reason?: string) {
 
   revalidatePath("/admin");
   revalidatePath("/terminal");
+  revalidatePath("/dashboard");
 
   return { success: true };
 }
