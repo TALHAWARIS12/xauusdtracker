@@ -146,10 +146,23 @@ export default function TradingChart({ candles, lines, className }: TradingChart
     }
   }, [candles]);
 
-  // 3) Price lines
+  // 3) Price lines (Subscriber-gated)
   useEffect(() => {
     const series = seriesRef.current;
-    if (!series || !lines) return;
+    if (!series) return;
+
+    if (!lines) {
+      for (const key of LINE_KEYS) {
+        const existing = priceLinesRef.current[key];
+        if (existing) {
+          try {
+            series.removePriceLine(existing);
+          } catch {}
+          delete priceLinesRef.current[key];
+        }
+      }
+      return;
+    }
 
     for (const key of LINE_KEYS) {
       const price = lines[key];

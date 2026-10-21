@@ -59,4 +59,8 @@ export interface MarketDataState {
   lastUpdated: number; // UTC ms
   error: string | null;
   isFallback: boolean;
+  source?: string;
+  latencyMs?: number;
+  underlyingInstrument?: string;
+  benchmarkAsset?: string;
 }

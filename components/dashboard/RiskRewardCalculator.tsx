@@ -8,10 +8,11 @@ interface RiskRewardCalculatorProps {
   currentPrice?: number;
 }
 
-export function RiskRewardCalculator({ currentPrice = 2715.0 }: RiskRewardCalculatorProps) {
-  const [entry, setEntry] = useState<string>(currentPrice > 0 ? currentPrice.toFixed(2) : "2715.00");
-  const [stopLoss, setStopLoss] = useState<string>((currentPrice > 0 ? currentPrice - 10 : 2705.0).toFixed(2));
-  const [takeProfit, setTakeProfit] = useState<string>((currentPrice > 0 ? currentPrice + 22 : 2737.0).toFixed(2));
+export function RiskRewardCalculator({ currentPrice = 4140.0 }: RiskRewardCalculatorProps) {
+  const defaultPrice = currentPrice > 1000 ? currentPrice : 4140.0;
+  const [entry, setEntry] = useState<string>(defaultPrice.toFixed(2));
+  const [stopLoss, setStopLoss] = useState<string>((defaultPrice - 12.0).toFixed(2));
+  const [takeProfit, setTakeProfit] = useState<string>((defaultPrice + 28.0).toFixed(2));
   const [balance, setBalance] = useState<string>("10000");
   const [riskPct, setRiskPct] = useState<string>("1.0");
 

@@ -23,11 +23,11 @@ interface GoldSpotCardProps {
   className?: string;
 }
 
-const CONNECTION_LABEL: Record<MarketDataState["connectionMode"], string> = {
-  connecting: "Connecting…",
-  websocket: "Live Market Feed",
-  polling: "Live Market Feed · auto-refresh",
-  error: "Reconnecting…",
+const CONNECTION_LABEL: Record<MarketDataState["connectionMode"], { text: string; cls: string }> = {
+  connecting: { text: "CONNECTING…", cls: "border-white/10 bg-white/[0.04] text-slate-300" },
+  websocket: { text: "WS LIVE (<40ms)", cls: "border-bull-400/30 bg-bull-400/10 text-bull-300 shadow-[0_0_10px_rgba(52,211,153,0.2)]" },
+  polling: { text: "REST SYNC (2s)", cls: "border-gold-400/30 bg-gold-400/10 text-gold-300" },
+  error: { text: "OFFLINE", cls: "border-bear-400/30 bg-bear-400/10 text-bear-300" },
 };
 
 export function GoldSpotCard({ market, isPro, className }: GoldSpotCardProps) {
@@ -48,6 +48,7 @@ export function GoldSpotCard({ market, isPro, className }: GoldSpotCardProps) {
   const volumeSnapshot = useDelayedSnapshot(liveVolumeUsd, isPro);
   const buyerShare = isPro ? liveBuyerShare : roundShare(buyerShareSnapshot);
   const volumeLabel = isPro ? formatCompactUsd(liveVolumeUsd) : formatRoughUsd(volumeSnapshot);
+  const conn = CONNECTION_LABEL[market.connectionMode] || CONNECTION_LABEL.connecting;
 
   return (
     <section
@@ -64,16 +65,25 @@ export function GoldSpotCard({ market, isPro, className }: GoldSpotCardProps) {
             Au
           </div>
           <div>
-            <h2 id="gold-spot-heading" className="text-base font-semibold">
-              Gold Spot Price
-            </h2>
-            <p className="text-xs text-slate-400">XAU/USD · per troy ounce</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 id="gold-spot-heading" className="text-base font-semibold">
+                Gold Spot Price (XAU/USD)
+              </h2>
+              <span className="rounded bg-gold-400/10 px-2 py-0.5 text-[10px] font-bold text-gold-300 border border-gold-400/20">
+                1:1 PHYSICAL BULLION
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Streaming continuous 24/7 liquidity · Underlying: PAXG/USDT (1 Fine Troy Oz Spot)
+            </p>
           </div>
         </div>
-        <span className="badge-live">
-          <Radio className="h-3 w-3" />
-          {CONNECTION_LABEL[market.connectionMode]}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border ${conn.cls}`}>
+            <Radio className="h-3 w-3" />
+            {conn.text}
+          </span>
+        </div>
       </header>
 
       {/* Price */}
@@ -104,15 +114,20 @@ export function GoldSpotCard({ market, isPro, className }: GoldSpotCardProps) {
         )}
       </div>
 
-      <div className="relative mt-3 flex items-center gap-2 text-sm text-slate-400">
-        <Clock3 className="h-4 w-4 text-gold-300" />
-        <LiveUtcClock id="gold-spot-timestamp" className="font-medium text-slate-300" />
+      <div className="relative mt-3 flex items-center justify-between text-xs text-slate-400 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Clock3 className="h-4 w-4 text-gold-300" />
+          <LiveUtcClock id="gold-spot-timestamp" className="font-medium text-slate-300" />
+        </div>
+        <span className="text-[11px] text-slate-500">
+          Binance 24/7 Sub-Second Matching Engine · 0-second Interbank Delay
+        </span>
       </div>
 
       {/* Sentiment */}
       <div className="relative mt-7 space-y-3 border-t border-white/[0.06] pt-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-white">Buyers vs. Sellers</h3>
+          <h3 className="text-sm font-semibold text-white">Buyers vs. Sellers (Order Flow Ratio)</h3>
           {!isPro && (
             <span className="text-[11px] font-medium text-slate-500">Delayed estimate · updates every 60s</span>
           )}

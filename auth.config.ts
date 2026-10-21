@@ -17,6 +17,7 @@ if (
 
 export const authConfig: NextAuthConfig = {
   trustHost: true,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "xauusdtracker_auth_secret_production_key_32bytes",
   pages: {
     signIn: "/login",
   },

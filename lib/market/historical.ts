@@ -51,7 +51,7 @@ function parseBinanceKlines(raw: BinanceRawKline[]): Candle[] {
  * Generates realistic synthetic 1-minute historical candles around standard gold pricing
  * if both external Binance endpoints are blocked by the ISP or network firewall.
  */
-export function generateFallbackCandles(count = 100, basePrice = 2714.85): Candle[] {
+export function generateFallbackCandles(count = 100, basePrice = 4140.00): Candle[] {
   const candles: Candle[] = [];
   const now = Math.floor(Date.now() / 60000) * 60;
   let current = basePrice - 12.5;
@@ -156,7 +156,7 @@ export async function fetchHistoricalCandles(): Promise<Candle[]> {
       return await fetchWithTimeout(MIRROR_BINANCE_URL, 2000);
     } catch (mirrorErr) {
       console.warn("External Binance endpoints unreachable from current network; activating deterministic fallback candles.");
-      return generateFallbackCandles(100, 2714.85);
+      return generateFallbackCandles(100, 4140.00);
     }
   }
 }
@@ -201,10 +201,10 @@ export async function fetch24hStats(): Promise<Ticker24h> {
       return await fetch24hFrom(MIRROR_24H_URL, 2000);
     } catch {
       return {
-        openPrice: 2698.40,
-        highPrice: 2724.80,
-        lowPrice: 2695.10,
-        volume: 48500,
+        openPrice: 4128.10,
+        highPrice: 4148.50,
+        lowPrice: 4115.50,
+        volume: 2200,
       };
     }
   }

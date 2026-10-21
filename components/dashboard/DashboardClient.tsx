@@ -14,6 +14,7 @@ import { MarketContextPanel } from "@/components/dashboard/MarketContextPanel";
 import { OrderBookDepth } from "@/components/dashboard/OrderBookDepth";
 import { TradeSetupCard } from "@/components/dashboard/TradeSetupCard";
 import { RiskRewardCalculator } from "@/components/dashboard/RiskRewardCalculator";
+import { MarketPressureCards } from "@/components/dashboard/MarketPressureCards";
 import { PositionFlowTable } from "@/components/dashboard/PositionFlowTable";
 import { PaymentSuccessModal } from "@/components/dashboard/PaymentSuccessModal";
 import { PaywallGateOverlay } from "@/components/dashboard/PaywallGateOverlay";
@@ -166,6 +167,13 @@ export function DashboardClient({ initialSubscribed, userEmail }: DashboardClien
       {/* Prominent Gold Spot Widget */}
       <GoldSpotCard market={market} isPro={isSubscribed} />
 
+      {/* Restored Institutional Participant & Volume Flow Pressure Analytics */}
+      <MarketPressureCards
+        buyers={model.buyers}
+        sellers={model.sellers}
+        isSubscribed={isSubscribed}
+      />
+
       {/* Market Context Panel */}
       <MarketContextPanel context={marketContext} isSubscribed={isSubscribed} />
 
@@ -251,7 +259,11 @@ export function DashboardClient({ initialSubscribed, userEmail }: DashboardClien
       <RiskRewardCalculator currentPrice={market.currentPrice} />
 
       {/* Institutional Position Flow Breakdown Table */}
-      <PositionFlowTable rows={model.positions} isSubscribed={isSubscribed} />
+      <PositionFlowTable
+        rows={model.positions}
+        isSubscribed={isSubscribed}
+        currentPrice={market.currentPrice}
+      />
 
       {/* Payment Success Modal */}
       <PaymentSuccessModal

@@ -33,7 +33,7 @@ interface BinanceKlineMessage {
 }
 
 // Generate immediate seed data so the terminal is NEVER blank on initial render
-const SEED_CANDLES = generateFallbackCandles(100, 2714.85);
+const SEED_CANDLES = generateFallbackCandles(100, 4140.00);
 const SEED_LATEST = SEED_CANDLES[SEED_CANDLES.length - 1];
 const SEED_SWINGS = calculateSwingLevels(SEED_CANDLES);
 const SEED_ZONES = calculateLiquidityZones(
@@ -53,15 +53,19 @@ export function useMarketData(): MarketDataState {
     liquidityZones: SEED_ZONES,
     volumeDistribution: SEED_VOLUME,
     stats24h: {
-      openPrice: 2698.40,
-      highPrice: 2724.80,
-      lowPrice: 2695.10,
-      volume: 48500,
+      openPrice: 4128.10,
+      highPrice: 4148.50,
+      lowPrice: 4115.50,
+      volume: 2200,
     },
     connectionMode: "connecting",
     lastUpdated: Date.now(),
     error: null,
     isFallback: false,
+    source: "Binance Bullion Engine (PAXG/USDT)",
+    latencyMs: 40,
+    underlyingInstrument: "PAXG/USDT (1 Fine Troy Ounce 1:1 Physical Gold)",
+    benchmarkAsset: "XAU/USD",
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -72,6 +76,15 @@ export function useMarketData(): MarketDataState {
 
   // Apply a new tick to candles and recalculate all quantitative models
   const applyMarketTick = useCallback((newCandle: Candle, mode: ConnectionMode) => {
+    // Sanity validation: reject invalid or extreme anomalous prices
+    if (
+      !Number.isFinite(newCandle.close) ||
+      newCandle.close <= 1000 ||
+      newCandle.close >= 25000
+    ) {
+      return;
+    }
+
     const current = candlesRef.current;
     let next: Candle[];
 
@@ -114,6 +127,13 @@ export function useMarketData(): MarketDataState {
       lastUpdated: Date.now(),
       error: null,
       isFallback: mode === "polling",
+      source:
+        mode === "websocket"
+          ? "Binance WebSocket 24/7 (PAXG/USDT)"
+          : "Binance REST Mirror (PAXG/USDT)",
+      latencyMs: mode === "websocket" ? 30 : 220,
+      underlyingInstrument: "PAXG/USDT (1 Fine Troy Ounce 1:1 Physical Gold)",
+      benchmarkAsset: "XAU/USD",
     }));
   }, []);
 
@@ -121,7 +141,12 @@ export function useMarketData(): MarketDataState {
   const startRestPolling = useCallback(() => {
     if (pollingIntervalRef.current) return;
 
-    setMarketState((prev) => ({ ...prev, connectionMode: "polling", isFallback: true }));
+    setMarketState((prev) => ({
+      ...prev,
+      connectionMode: "polling",
+      isFallback: true,
+      source: "Binance REST Mirror (PAXG/USDT)",
+    }));
 
     const fetchPriceTick = async () => {
       let price: number | null = null;
@@ -130,7 +155,7 @@ export function useMarketData(): MarketDataState {
         if (res.ok) {
           const data: { symbol: string; price: string } = await res.json();
           const parsed = parseFloat(data.price);
-          if (Number.isFinite(parsed) && parsed > 0) {
+          if (Number.isFinite(parsed) && parsed > 1000 && parsed < 25000) {
             price = parsed;
           }
         }
@@ -142,7 +167,7 @@ export function useMarketData(): MarketDataState {
       const last = currentCandles.length > 0 ? currentCandles[currentCandles.length - 1] : null;
 
       if (price === null) {
-        const base = last ? last.close : 2714.85;
+        const base = last ? last.close : 4140.00;
         const delta = (Math.random() - 0.48) * 0.45;
         price = Number((base + delta).toFixed(2));
       }

@@ -34,14 +34,44 @@ const ZONE_DESCRIPTIONS: Record<string, { standardLabel: string; basis: string; 
 };
 
 export function OrderBookDepth({ rows, currentPrice, isSubscribed }: OrderBookDepthProps) {
-  // Mock data for preview underneath paywall if free
+  const cp = currentPrice > 1000 ? currentPrice : 4140.0;
+
+  // Dynamic preview data underneath paywall if free or loading
   const displayRows: DepthRow[] =
     !isSubscribed || rows.length === 0
       ? [
-          { key: "buyerSL", label: "Buyer Stop-Loss Cluster", zone: { min: 2704, max: 2708 }, traders: 125000, widthPct: 85, tone: "red" },
-          { key: "buyerTP", label: "Buyer Take-Profit Target", zone: { min: 2742, max: 2748 }, traders: 98000, widthPct: 70, tone: "green" },
-          { key: "sellerSL", label: "Seller Stop-Loss Pool", zone: { min: 2730, max: 2735 }, traders: 54000, widthPct: 45, tone: "green" },
-          { key: "sellerTP", label: "Seller Take-Profit Target", zone: { min: 2690, max: 2695 }, traders: 46000, widthPct: 38, tone: "red" },
+          {
+            key: "buyerSL",
+            label: "Buyer Stop-Loss Cluster",
+            zone: { min: Math.round(cp * 0.995), max: Math.round(cp * 0.998) },
+            traders: 125000,
+            widthPct: 85,
+            tone: "red",
+          },
+          {
+            key: "buyerTP",
+            label: "Buyer Take-Profit Target",
+            zone: { min: Math.round(cp * 1.008), max: Math.round(cp * 1.015) },
+            traders: 98000,
+            widthPct: 70,
+            tone: "green",
+          },
+          {
+            key: "sellerSL",
+            label: "Seller Stop-Loss Pool",
+            zone: { min: Math.round(cp * 1.002), max: Math.round(cp * 1.005) },
+            traders: 54000,
+            widthPct: 45,
+            tone: "green",
+          },
+          {
+            key: "sellerTP",
+            label: "Seller Take-Profit Target",
+            zone: { min: Math.round(cp * 0.985), max: Math.round(cp * 0.992) },
+            traders: 46000,
+            widthPct: 38,
+            tone: "red",
+          },
         ]
       : rows;
 

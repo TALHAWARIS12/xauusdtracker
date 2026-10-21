@@ -6,16 +6,32 @@ import { formatBillions, formatInt, formatZone, type PositionRow } from "@/lib/m
 interface PositionFlowTableProps {
   rows: PositionRow[];
   isSubscribed: boolean;
+  currentPrice?: number;
 }
 
 const COLUMNS = ["Market Side", "Trader Count", "Entry Range", "Stop-Loss Level", "Take-Profit Target", "Estimated Volume"];
 
-export function PositionFlowTable({ rows, isSubscribed }: PositionFlowTableProps) {
+export function PositionFlowTable({ rows, isSubscribed, currentPrice = 4140.0 }: PositionFlowTableProps) {
+  const cp = currentPrice > 1000 ? currentPrice : 4140.0;
   const displayRows: PositionRow[] =
     !isSubscribed || rows.length === 0
       ? [
-          { side: "BUYERS", traders: 165000, entry: { min: 2710, max: 2715 }, stopLoss: { min: 2704, max: 2708 }, takeProfit: { min: 2742, max: 2748 }, notionalBillion: 52.4 },
-          { side: "SELLERS", traders: 82000, entry: { min: 2715, max: 2720 }, stopLoss: { min: 2728, max: 2732 }, takeProfit: { min: 2692, max: 2696 }, notionalBillion: 28.1 },
+          {
+            side: "BUYERS",
+            traders: 165000,
+            entry: { min: Math.round(cp * 0.998), max: Math.round(cp) },
+            stopLoss: { min: Math.round(cp * 0.995), max: Math.round(cp * 0.998) },
+            takeProfit: { min: Math.round(cp * 1.008), max: Math.round(cp * 1.015) },
+            notionalBillion: 52.4,
+          },
+          {
+            side: "SELLERS",
+            traders: 82000,
+            entry: { min: Math.round(cp), max: Math.round(cp * 1.002) },
+            stopLoss: { min: Math.round(cp * 1.002), max: Math.round(cp * 1.005) },
+            takeProfit: { min: Math.round(cp * 0.985), max: Math.round(cp * 0.992) },
+            notionalBillion: 28.1,
+          },
         ]
       : rows;
 
