@@ -9,15 +9,6 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const userRole = req.auth?.user?.role;
 
-  // Protect /terminal route: user must be authenticated
-  if (pathname.startsWith("/terminal")) {
-    if (!isLoggedIn) {
-      const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("callbackUrl", "/terminal");
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
   // Protect /admin route: user must be authenticated and have ADMIN role
   if (pathname.startsWith("/admin")) {
     if (!isLoggedIn) {
@@ -26,7 +17,16 @@ export default auth((req) => {
       return NextResponse.redirect(loginUrl);
     }
     if (userRole !== "ADMIN") {
-      return NextResponse.redirect(new URL("/terminal", req.url));
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+  }
+
+  // Protect /account route: user must be authenticated
+  if (pathname.startsWith("/account")) {
+    if (!isLoggedIn) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("callbackUrl", "/account");
+      return NextResponse.redirect(loginUrl);
     }
   }
 
@@ -34,5 +34,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/terminal/:path*", "/admin/:path*"],
+  matcher: ["/admin/:path*", "/account/:path*"],
 };

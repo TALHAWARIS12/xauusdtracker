@@ -8,15 +8,7 @@ import { evaluateTradeSetup } from "@/lib/market/setup-engine";
 export async function GET() {
   try {
     const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required to access terminal intelligence." },
-        { status: 401 }
-      );
-    }
-
-    const isSubscribed = await getSubscriptionStatus(session.user.id);
+    const isSubscribed = await getSubscriptionStatus(session?.user?.id);
     const candles = await fetchHistoricalCandles();
     const evaluation = evaluateTradeSetup(candles, "1M");
 
