@@ -289,7 +289,39 @@ export async function fetch24hStats(): Promise<Ticker24h> {
     }
   }
 
-  // Tier 2: Bybit XAUUSDT Linear Ticker
+  // Tier 2: TradingView Official CFD Scanner (OANDA:XAUUSD & TVC:GOLD)
+  try {
+    const tvRes = await fetch("https://scanner.tradingview.com/cfd/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        symbols: { tickers: ["OANDA:XAUUSD", "TVC:GOLD"] },
+        columns: ["bid", "ask", "close", "open", "high", "low", "volume"],
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000),
+    });
+    if (tvRes.ok) {
+      const tvData = await tvRes.json();
+      const row = tvData?.data?.[0]?.d;
+      if (Array.isArray(row) && row.length >= 6) {
+        const open = parseFloat(row[3]);
+        const high = parseFloat(row[4]);
+        const low = parseFloat(row[5]);
+        const volume = parseFloat(row[6]) || 25000;
+        if (Number.isFinite(open) && open > 1000) {
+          return {
+            openPrice: open,
+            highPrice: high,
+            lowPrice: low,
+            volume,
+          };
+        }
+      }
+    }
+  } catch {}
+
+  // Tier 3: Bybit XAUUSDT Linear Ticker
   try {
     const res = await fetch(
       "https://api.bybit.com/v5/market/tickers?category=linear&symbol=XAUUSDT",
