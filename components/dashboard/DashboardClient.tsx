@@ -45,7 +45,7 @@ export function DashboardClient({ initialSubscribed, userEmail }: DashboardClien
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [timeframe, setTimeframe] = useState<TimeframeOption>("1M");
 
-  const market = useMarketData();
+  const market = useMarketData(timeframe);
 
   // Check for payment=success or persistent sandbox_pro cookie/localStorage
   useEffect(() => {
@@ -82,12 +82,8 @@ export function DashboardClient({ initialSubscribed, userEmail }: DashboardClien
     }
   };
 
-  // Multi-timeframe candle aggregation
-  const timeframeMinutes = timeframe === "15M" ? 15 : timeframe === "5M" ? 5 : 1;
-  const activeCandles = useMemo(
-    () => aggregateCandles(market.candles, timeframeMinutes),
-    [market.candles, timeframeMinutes]
-  );
+  // Active candles for selected timeframe (150 candles loaded directly per timeframe)
+  const activeCandles = market.candles;
 
   // Derive model with data gating
   const model = useMemo(
@@ -224,7 +220,7 @@ export function DashboardClient({ initialSubscribed, userEmail }: DashboardClien
           </header>
 
           <div className="relative h-[420px] lg:h-[480px] p-2">
-            <TradingChart candles={activeCandles} lines={lines} />
+            <TradingChart candles={activeCandles} lines={lines} timeframe={timeframe} />
             {/* Free Mode Subtle Micro-Chart Paywall overlay */}
             {!isSubscribed && (
               <div className="absolute bottom-4 right-4 z-20">

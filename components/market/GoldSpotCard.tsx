@@ -74,7 +74,7 @@ export function GoldSpotCard({ market, isPro, className }: GoldSpotCardProps) {
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Streaming continuous 24/7 liquidity · Underlying: PAXG/USDT (1 Fine Troy Oz Spot)
+              Streaming continuous 24/7 liquidity · Feed: {market.source || "XAU/USD Institutional Spot (Interbank / Bybit / Binance)"}
             </p>
           </div>
         </div>

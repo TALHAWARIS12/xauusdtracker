@@ -160,4 +160,27 @@ describe("Market Data Accuracy & Current Pricing Integrity (~$4,140 Gold Benchma
       expect(pos.notionalBillion).toBeGreaterThan(0);
     }
   });
+
+  it("fetches deep historical candles across 1M, 5M, and 15M timeframes (>= 100 bars for MT5 parity)", async () => {
+    const { fetchHistoricalCandles } = await import("@/lib/market/historical");
+
+    const m1Candles = await fetchHistoricalCandles("1M", 100);
+    expect(m1Candles.length).toBeGreaterThanOrEqual(100);
+    expect(m1Candles[m1Candles.length - 1].time).toBeGreaterThan(m1Candles[0].time);
+
+    const m5Candles = await fetchHistoricalCandles("5M", 100);
+    expect(m5Candles.length).toBeGreaterThanOrEqual(100);
+    expect(m5Candles[m5Candles.length - 1].time).toBeGreaterThan(m5Candles[0].time);
+
+    const m15Candles = await fetchHistoricalCandles("15M", 100);
+    expect(m15Candles.length).toBeGreaterThanOrEqual(100);
+    expect(m15Candles[m15Candles.length - 1].time).toBeGreaterThan(m15Candles[0].time);
+
+    // Verify candle structural validity on 15M (matching MT5)
+    for (const c of m15Candles) {
+      expect(c.high).toBeGreaterThanOrEqual(c.low);
+      expect(c.close).toBeGreaterThan(0);
+      expect(c.open).toBeGreaterThan(0);
+    }
+  });
 });

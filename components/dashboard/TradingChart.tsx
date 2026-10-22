@@ -27,6 +27,7 @@ export interface ChartPriceLines {
 interface TradingChartProps {
   candles: Candle[];
   lines: ChartPriceLines | null;
+  timeframe?: string;
   className?: string;
 }
 
@@ -46,7 +47,12 @@ const toBar = (c: Candle): CandlestickData<UTCTimestamp> => ({
   close: c.close,
 });
 
-export default function TradingChart({ candles, lines, className }: TradingChartProps) {
+export default function TradingChart({
+  candles,
+  lines,
+  timeframe = "1M",
+  className,
+}: TradingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -56,7 +62,10 @@ export default function TradingChart({ candles, lines, className }: TradingChart
     buyerSL?: IPriceLine;
     sellerTP?: IPriceLine;
   }>({});
+
   const lastBarTimeRef = useRef<number | null>(null);
+  const prevTimeframeRef = useRef<string>(timeframe);
+  const prevLengthRef = useRef<number>(0);
 
   // 1) Create chart on mount
   useEffect(() => {
@@ -78,12 +87,20 @@ export default function TradingChart({ candles, lines, className }: TradingChart
         horzLines: { color: "rgba(255,255,255,0.04)" },
       },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: "rgba(255,255,255,0.08)" },
+      rightPriceScale: {
+        borderColor: "rgba(255,255,255,0.08)",
+        scaleMargins: {
+          top: 0.12,
+          bottom: 0.12,
+        },
+      },
       timeScale: {
         borderColor: "rgba(255,255,255,0.08)",
         timeVisible: true,
         secondsVisible: false,
         rightOffset: 6,
+        barSpacing: 7,
+        minBarSpacing: 3,
       },
     });
 
@@ -119,7 +136,7 @@ export default function TradingChart({ candles, lines, className }: TradingChart
     };
   }, []);
 
-  // 2) Update data safely
+  // 2) Update candles with strict timeframe reset & live bar updates
   useEffect(() => {
     const series = seriesRef.current;
     if (!series || !candles || candles.length === 0) return;
@@ -131,20 +148,34 @@ export default function TradingChart({ candles, lines, className }: TradingChart
         map.set(c.time, c);
       }
       const uniqueSorted = Array.from(map.values()).sort((a, b) => a.time - b.time);
-      const last = uniqueSorted[uniqueSorted.length - 1];
-      const lastTime = lastBarTimeRef.current;
+      if (uniqueSorted.length === 0) return;
 
-      if (lastTime === null || last.time < lastTime) {
+      const last = uniqueSorted[uniqueSorted.length - 1];
+      const isTimeframeChanged = prevTimeframeRef.current !== timeframe;
+      const lengthDelta = Math.abs(uniqueSorted.length - prevLengthRef.current);
+
+      // Force full reload if timeframe switched, initial render, or large candle delta
+      const needsFullReload =
+        lastBarTimeRef.current === null ||
+        isTimeframeChanged ||
+        lengthDelta > 2 ||
+        last.time < (lastBarTimeRef.current ?? 0);
+
+      if (needsFullReload) {
         series.setData(uniqueSorted.map(toBar));
         chartRef.current?.timeScale().fitContent();
+        prevTimeframeRef.current = timeframe;
       } else {
+        // Real-time single bar update
         series.update(toBar(last));
       }
+
       lastBarTimeRef.current = last.time;
+      prevLengthRef.current = uniqueSorted.length;
     } catch (err) {
       console.warn("Chart data update error:", err);
     }
-  }, [candles]);
+  }, [candles, timeframe]);
 
   // 3) Price lines (Subscriber-gated)
   useEffect(() => {
