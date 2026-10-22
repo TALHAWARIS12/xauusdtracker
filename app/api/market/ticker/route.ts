@@ -1,7 +1,43 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  // 1. Try TradingView Official Scanner (OANDA:XAUUSD & TVC:GOLD) - 100% MT5 / TradingView Parity
+  // 1. Try Binance Futures Official Ticker (XAUUSDT)
+  try {
+    const res = await fetch("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=XAUUSDT", {
+      next: { revalidate: 1 },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const last = parseFloat(data.lastPrice);
+      const open = parseFloat(data.openPrice);
+      const high = parseFloat(data.highPrice);
+      const low = parseFloat(data.lowPrice);
+      const vol = parseFloat(data.volume);
+      const quoteVol = parseFloat(data.quoteVolume);
+      const pct = parseFloat(data.priceChangePercent);
+
+      if (Number.isFinite(last) && last > 1000) {
+        return NextResponse.json({
+          price: last,
+          stats24h: {
+            openPrice: open,
+            highPrice: high,
+            lowPrice: low,
+            volume: vol,
+            quoteVolume: quoteVol,
+            priceChangePercent: pct,
+          },
+          source: "Binance Futures Official (XAUUSDT)",
+          timestamp: Date.now(),
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Server API: Binance Futures ticker unavailable, trying TradingView...", err);
+  }
+
+  // 2. Try TradingView Official Scanner (OANDA:XAUUSD & TVC:GOLD)
   try {
     const tvRes = await fetch("https://scanner.tradingview.com/cfd/scan", {
       method: "POST",

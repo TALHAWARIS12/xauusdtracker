@@ -124,6 +124,7 @@ describe("Market Data Accuracy & Current Pricing Integrity (~$4,140 Gold Benchma
         volume: 2200,
       },
       connectionMode: "websocket",
+      wsStatus: "Live Connected",
       lastUpdated: Date.now(),
       error: null,
       isFallback: false,

@@ -19,27 +19,7 @@ export function TradeSetupCard({ evaluation, isSubscribed }: TradeSetupCardProps
   }
 
   const { hasSetup, setup, neutralReason } = evaluation;
-
-  // Mock preview setup if not subscribed so user sees what is behind paywall
-  const activeSetup = setup || (hasSetup ? null : {
-    symbol: "XAUUSD" as const,
-    timeframe: "1M",
-    direction: "BULLISH" as const,
-    entryMin: 4138.5,
-    entryMax: 4141.5,
-    stopLoss: 4125.0,
-    takeProfit: 4165.0,
-    riskReward: 2.3,
-    score: 88,
-    rationale: "Bullish EMA 20/50 alignment above swing demand level with healthy RSI momentum and 2.3:1 reward-to-risk expansion target.",
-    conditionsMet: [
-      "EMA(20) > EMA(50) Bullish Trend Alignment",
-      "RSI(14) in Optimal Bullish Zone (56.4)",
-      "Price Holding Above Structural Swing Low ($4,125.00)",
-      "Favorable Reward-to-Risk Ratio (2.3:1)",
-    ],
-    timestamp: Date.now(),
-  });
+  const activeSetup = setup;
 
   return (
     <section
@@ -60,22 +40,22 @@ export function TradeSetupCard({ evaluation, isSubscribed }: TradeSetupCardProps
 
         <span
           className={`badge ${
-            hasSetup || !isSubscribed
-              ? activeSetup?.direction === "BULLISH"
+            hasSetup && activeSetup
+              ? activeSetup.direction === "BULLISH"
                 ? "bg-bull-400/10 text-bull-300 border border-bull-400/30"
                 : "bg-bear-400/10 text-bear-300 border border-bear-400/30"
               : "bg-white/[0.04] text-slate-400 border border-white/10"
           }`}
         >
-          {hasSetup || !isSubscribed
-            ? `${activeSetup?.direction} Signal Identified`
+          {hasSetup && activeSetup
+            ? `${activeSetup.direction} Signal Identified`
             : "Neutral · Consolidating"}
         </span>
       </header>
 
       {/* Main Signal Content */}
       <div className={`p-6 space-y-6 ${!isSubscribed ? "filter blur-[5px] select-none pointer-events-none" : ""}`}>
-        {activeSetup && (hasSetup || !isSubscribed) ? (
+        {activeSetup && hasSetup ? (
           <>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-5">
               <div className="flex items-center gap-3">

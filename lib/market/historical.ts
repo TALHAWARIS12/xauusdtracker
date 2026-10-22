@@ -207,7 +207,38 @@ export async function fetchHistoricalCandles(
     }
   }
 
-  // Tier 2: Bybit Direct XAUUSDT Linear Klines
+  const binanceInterval = BINANCE_INTERVAL[timeframe] || "1m";
+
+  // Tier 2: Binance Futures Official Klines (XAUUSDT)
+  try {
+    const fapiUrl = `https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=${binanceInterval}&limit=${requestedLimit}`;
+    const res = await fetch(fapiUrl, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3500),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const candles: Candle[] = data
+          .map((item: (number | string)[]) => ({
+            time: Math.floor(Number(item[0]) / 1000),
+            open: parseFloat(String(item[1])),
+            high: parseFloat(String(item[2])),
+            low: parseFloat(String(item[3])),
+            close: parseFloat(String(item[4])),
+            volume: parseFloat(String(item[5])) || 0,
+          }))
+          .filter((c: Candle) => Number.isFinite(c.close) && c.close > 0)
+          .sort((a: Candle, b: Candle) => a.time - b.time);
+
+        if (candles.length > 0) return candles;
+      }
+    }
+  } catch (fapiErr) {
+    console.warn("Binance Futures klines unavailable, trying Bybit...", fapiErr);
+  }
+
+  // Tier 3: Bybit Direct XAUUSDT Linear Klines
   const bybitInterval = BYBIT_INTERVAL[timeframe] || "1";
   const bybitUrl = `https://api.bybit.com/v5/market/kline?category=linear&symbol=XAUUSDT&interval=${bybitInterval}&limit=${requestedLimit}`;
 
@@ -227,8 +258,7 @@ export async function fetchHistoricalCandles(
     console.warn("Bybit API klines unavailable, trying Binance Vision mirror...", bybitErr);
   }
 
-  // Tier 3: Binance PAXGUSDT (Public Vision Mirror)
-  const binanceInterval = BINANCE_INTERVAL[timeframe] || "1m";
+  // Tier 4: Binance PAXGUSDT (Public Vision Mirror)
   const mirrorBinanceUrl = `https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=${binanceInterval}&limit=${requestedLimit}`;
 
   try {
@@ -289,7 +319,30 @@ export async function fetch24hStats(): Promise<Ticker24h> {
     }
   }
 
-  // Tier 2: TradingView Official CFD Scanner (OANDA:XAUUSD & TVC:GOLD)
+  // Tier 2: Binance Futures Official Ticker (XAUUSDT)
+  try {
+    const fapiRes = await fetch("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=XAUUSDT", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000),
+    });
+    if (fapiRes.ok) {
+      const data = await fapiRes.json();
+      const open = parseFloat(data.openPrice);
+      const high = parseFloat(data.highPrice);
+      const low = parseFloat(data.lowPrice);
+      const vol = parseFloat(data.volume);
+      if (Number.isFinite(open) && open > 1000) {
+        return {
+          openPrice: open,
+          highPrice: high,
+          lowPrice: low,
+          volume: vol,
+        };
+      }
+    }
+  } catch {}
+
+  // Tier 3: TradingView Official CFD Scanner (OANDA:XAUUSD & TVC:GOLD)
   try {
     const tvRes = await fetch("https://scanner.tradingview.com/cfd/scan", {
       method: "POST",

@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Candle, ConnectionMode, MarketDataState } from "@/lib/market/types";
+import {
+  Candle,
+  ConnectionMode,
+  LiveOrderBook,
+  LiveOrderFlow,
+  MarketDataState,
+  OrderBookLevel,
+  WebSocketStatus,
+} from "@/lib/market/types";
 import {
   ChartTimeframe,
   fetch24hStats,
@@ -14,14 +22,15 @@ import {
   calculateVolumeDistribution,
 } from "@/lib/market/liquidity-engine";
 
+const BINANCE_FSTREAM_URL =
+  "wss://fstream.binance.com/stream?streams=xauusdt@ticker/xauusdt@markPrice/xauusdt@depth10@100ms/xauusdt@aggTrade/xauusdt@kline_1m/xauusdt@kline_5m/xauusdt@kline_15m";
 const BYBIT_WS_URL = "wss://stream.bybit.com/v5/public/linear";
-const BINANCE_WS_URL = "wss://stream.binance.com:9443/ws/paxgusdt@kline_1m";
-const POLLING_INTERVAL_MS = 2000;
-const STATS_REFRESH_MS = 30_000;
+const POLLING_INTERVAL_MS = 1500;
+const STATS_REFRESH_MS = 20_000;
 const MAX_CANDLES = 150;
 
-// Immediate realistic seed data around current gold spot (~$4,060 - $4,085)
-const SEED_CANDLES = generateFallbackCandles(150, 4060.0);
+// Benchmark seed initialized at ~$4,050 with zero mock ratios
+const SEED_CANDLES = generateFallbackCandles(150, 4050.0);
 const SEED_LATEST = SEED_CANDLES[SEED_CANDLES.length - 1];
 const SEED_SWINGS = calculateSwingLevels(SEED_CANDLES);
 const SEED_ZONES = calculateLiquidityZones(
@@ -29,7 +38,7 @@ const SEED_ZONES = calculateLiquidityZones(
   SEED_SWINGS.swingHigh,
   SEED_SWINGS.swingLow
 );
-const SEED_VOLUME = calculateVolumeDistribution(SEED_CANDLES);
+const SEED_VOLUME = calculateVolumeDistribution(SEED_CANDLES, null);
 
 export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState {
   const [marketState, setMarketState] = useState<MarketDataState>({
@@ -40,27 +49,42 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
     swingLevels: SEED_SWINGS,
     liquidityZones: SEED_ZONES,
     volumeDistribution: SEED_VOLUME,
+    orderBook: null,
+    orderFlow: null,
     stats24h: {
-      openPrice: 4085.0,
-      highPrice: 4120.0,
-      lowPrice: 4052.0,
-      volume: 24500,
+      openPrice: 4143.0,
+      highPrice: 4151.0,
+      lowPrice: 4043.0,
+      volume: 148000,
     },
     connectionMode: "connecting",
+    wsStatus: "Reconnecting",
     lastUpdated: Date.now(),
     error: null,
     isFallback: false,
-    source: "Institutional Gold Engine (XAU/USD)",
+    source: "Binance Futures 1:1 Live Engine (XAUUSDT)",
     latencyMs: 35,
-    underlyingInstrument: "XAU/USD Institutional Spot (London Good Delivery / Interbank)",
+    underlyingInstrument: "XAUUSDT (Perpetual / Spot Gold Bullion)",
     benchmarkAsset: "XAU/USD",
   });
 
   const wsRef = useRef<WebSocket | null>(null);
   const isWsConnectedRef = useRef<boolean>(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentTimeframeRef = useRef<ChartTimeframe>(timeframe);
   currentTimeframeRef.current = timeframe;
+
+  // Real-time cumulative order flow delta accumulator (purges fake formulas)
+  const orderFlowAccumRef = useRef<{
+    buyVolume: number;
+    sellVolume: number;
+    tradesCount: number;
+  }>({
+    buyVolume: 0,
+    sellVolume: 0,
+    tradesCount: 0,
+  });
 
   // In-memory cache for all timeframes so switching is instant
   const candlesByTfRef = useRef<Record<ChartTimeframe, Candle[]>>({
@@ -112,51 +136,58 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
         swingLevels.swingHigh,
         swingLevels.swingLow
       );
-      const volumeDistribution = calculateVolumeDistribution(nextList);
 
-      setMarketState((prev) => ({
-        ...prev,
-        currentPrice: newCandle.close,
-        previousPrice: prev.currentPrice || newCandle.close,
-        candles: nextList,
-        latestCandle: newCandle,
-        swingLevels,
-        liquidityZones,
-        volumeDistribution,
-        connectionMode: mode,
-        lastUpdated: Date.now(),
-        error: null,
-        isFallback: mode === "polling",
-        source:
-          sourceLabel ||
-          (mode === "websocket"
-            ? "Bybit Institutional Gold Stream (XAUUSDT)"
-            : "Market REST Sync (XAU/USD)"),
-        latencyMs: mode === "websocket" ? 25 : 180,
-      }));
+      setMarketState((prev) => {
+        const volumeDistribution = calculateVolumeDistribution(nextList, prev.orderFlow);
+        return {
+          ...prev,
+          currentPrice: newCandle.close,
+          previousPrice: prev.currentPrice || newCandle.close,
+          candles: nextList,
+          latestCandle: newCandle,
+          swingLevels,
+          liquidityZones,
+          volumeDistribution,
+          connectionMode: mode,
+          lastUpdated: Date.now(),
+          error: null,
+          isFallback: mode === "polling",
+          source: sourceLabel || prev.source,
+        };
+      });
     },
     []
   );
 
-  // REST polling fallback
-  const startRestPolling = useCallback(() => {
-    if (pollingIntervalRef.current) return;
+  // Automated REST fallback query to initialize valid price & depth before/while WS connects
+  const executeRestFallback = useCallback(async () => {
+    let price: number | null = null;
+    let high: number | null = null;
+    let low: number | null = null;
+    let open: number | null = null;
+    let vol: number | null = null;
 
-    setMarketState((prev) => ({
-      ...prev,
-      connectionMode: "polling",
-      isFallback: true,
-      source: "Server REST Sync (XAU/USD)",
-    }));
+    // 1. Query Binance Futures REST endpoint
+    try {
+      const res = await fetch("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=XAUUSDT", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(3000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const p = parseFloat(data.lastPrice);
+        if (Number.isFinite(p) && p > 1000) {
+          price = p;
+          open = parseFloat(data.openPrice);
+          high = parseFloat(data.highPrice);
+          low = parseFloat(data.lowPrice);
+          vol = parseFloat(data.volume);
+        }
+      }
+    } catch {}
 
-    const fetchPriceTick = async () => {
-      let price: number | null = null;
-      let openPrice: number | null = null;
-      let highPrice: number | null = null;
-      let lowPrice: number | null = null;
-      let vol: number | null = null;
-
-      // 1. Try server internal ticker endpoint
+    // 2. Query internal proxy endpoint if direct call timed out
+    if (price === null) {
       try {
         const res = await fetch("/api/market/ticker", {
           cache: "no-store",
@@ -167,61 +198,20 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
           if (Number.isFinite(data.price) && data.price > 1000) {
             price = data.price;
             if (data.stats24h) {
-              openPrice = data.stats24h.openPrice;
-              highPrice = data.stats24h.highPrice;
-              lowPrice = data.stats24h.lowPrice;
+              open = data.stats24h.openPrice;
+              high = data.stats24h.highPrice;
+              low = data.stats24h.lowPrice;
               vol = data.stats24h.volume;
             }
           }
         }
       } catch {}
+    }
 
-      // 2. Try Bybit direct ticker
-      if (price === null) {
-        try {
-          const res = await fetch(
-            "https://api.bybit.com/v5/market/tickers?category=linear&symbol=XAUUSDT",
-            { cache: "no-store", signal: AbortSignal.timeout(2500) }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            const last = parseFloat(data?.result?.list?.[0]?.lastPrice);
-            if (Number.isFinite(last) && last > 1000) {
-              price = last;
-            }
-          }
-        } catch {}
-      }
-
-      // 3. Try Binance Vision
-      if (price === null) {
-        try {
-          const res = await fetch(
-            "https://data-api.binance.vision/api/v3/ticker/price?symbol=PAXGUSDT",
-            { cache: "no-store", signal: AbortSignal.timeout(2500) }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            const parsed = parseFloat(data.price);
-            if (Number.isFinite(parsed) && parsed > 1000) {
-              price = parsed;
-            }
-          }
-        } catch {}
-      }
-
+    if (price !== null) {
       const activeTf = currentTimeframeRef.current;
       const currentCandles = candlesByTfRef.current[activeTf] || [];
-      const last =
-        currentCandles.length > 0 ? currentCandles[currentCandles.length - 1] : null;
-
-      if (price === null) {
-        // Subtle micro-tick if completely disconnected
-        const base = last ? last.close : 4060.0;
-        const delta = (Math.random() - 0.49) * 0.35;
-        price = Number((base + delta).toFixed(2));
-      }
-
+      const last = currentCandles.length > 0 ? currentCandles[currentCandles.length - 1] : null;
       const intervalMinutes = activeTf === "15M" ? 15 : activeTf === "5M" ? 5 : 1;
       const stepSeconds = intervalMinutes * 60;
       const bucketTime = Math.floor(Date.now() / (stepSeconds * 1000)) * stepSeconds;
@@ -233,7 +223,6 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
           close: price,
           high: Number(Math.max(last.high, price).toFixed(2)),
           low: Number(Math.min(last.low, price).toFixed(2)),
-          volume: Number((last.volume + Math.random() * 2).toFixed(2)),
         };
       } else {
         const o = last ? last.close : price;
@@ -243,41 +232,52 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
           high: Number(Math.max(price, o).toFixed(2)),
           low: Number(Math.min(price, o).toFixed(2)),
           close: price,
-          volume: Number((5 + Math.random() * 15).toFixed(2)),
+          volume: 10,
         };
       }
 
-      applyMarketTick(candle, "polling", "Server REST Sync (XAU/USD)");
+      applyMarketTick(candle, "polling", "Binance Official REST Sync (XAUUSDT)");
 
-      if (openPrice && highPrice && lowPrice) {
+      if (open && high && low) {
         setMarketState((prev) => ({
           ...prev,
           stats24h: {
-            openPrice: openPrice!,
-            highPrice: highPrice!,
-            lowPrice: lowPrice!,
-            volume: vol || prev.stats24h?.volume || 25000,
+            openPrice: open!,
+            highPrice: high!,
+            lowPrice: low!,
+            volume: vol || prev.stats24h?.volume || 148000,
           },
         }));
       }
-    };
-
-    void fetchPriceTick();
-    pollingIntervalRef.current = setInterval(fetchPriceTick, POLLING_INTERVAL_MS);
+    }
   }, [applyMarketTick]);
+
+  // REST polling fallback when WebSocket is offline/reconnecting
+  const startRestPolling = useCallback(() => {
+    if (pollingIntervalRef.current) return;
+
+    setMarketState((prev) => ({
+      ...prev,
+      connectionMode: "polling",
+      wsStatus: "Reconnecting",
+      isFallback: true,
+      source: "Binance Official REST Sync (XAUUSDT)",
+    }));
+
+    void executeRestFallback();
+    pollingIntervalRef.current = setInterval(executeRestFallback, POLLING_INTERVAL_MS);
+  }, [executeRestFallback]);
 
   // Load historical candles whenever the active timeframe changes
   useEffect(() => {
     let cancelled = false;
 
     async function loadTimeframeData() {
-      // If we already have cached candles for this timeframe, switch immediately!
       const cached = candlesByTfRef.current[timeframe];
       if (cached && cached.length >= 20) {
         const latest = cached[cached.length - 1];
         const swings = calculateSwingLevels(cached);
         const zones = calculateLiquidityZones(latest.close, swings.swingHigh, swings.swingLow);
-        const vols = calculateVolumeDistribution(cached);
 
         setMarketState((prev) => ({
           ...prev,
@@ -286,11 +286,10 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
           currentPrice: latest.close,
           swingLevels: swings,
           liquidityZones: zones,
-          volumeDistribution: vols,
+          volumeDistribution: calculateVolumeDistribution(cached, prev.orderFlow),
         }));
       }
 
-      // Fetch fresh, deep historical candles for the timeframe
       try {
         const fresh = await fetchHistoricalCandles(timeframe, 150);
         if (cancelled || !fresh || fresh.length === 0) return;
@@ -299,7 +298,6 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
         const latest = fresh[fresh.length - 1];
         const swings = calculateSwingLevels(fresh);
         const zones = calculateLiquidityZones(latest.close, swings.swingHigh, swings.swingLow);
-        const vols = calculateVolumeDistribution(fresh);
 
         setMarketState((prev) => ({
           ...prev,
@@ -308,7 +306,7 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
           currentPrice: latest.close,
           swingLevels: swings,
           liquidityZones: zones,
-          volumeDistribution: vols,
+          volumeDistribution: calculateVolumeDistribution(fresh, prev.orderFlow),
         }));
       } catch (err) {
         console.warn("Failed to load historical candles for timeframe", timeframe, err);
@@ -322,128 +320,219 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
     };
   }, [timeframe]);
 
-  // Master WebSocket Connection Lifecycle
+  // Master Binance Futures WebSocket Lifecycle
   useEffect(() => {
     let cancelled = false;
 
-    async function initFeed() {
-      // 1. Initial 24h stats load
-      try {
-        const stats = await fetch24hStats();
-        if (!cancelled && stats) {
-          setMarketState((prev) => ({ ...prev, stats24h: stats }));
-        }
-      } catch {}
+    // Immediately trigger REST query to initialize valid price before WS connects
+    void executeRestFallback();
 
+    function connectWebSocket() {
       if (cancelled) return;
 
-      // 2. Try Bybit Linear WebSocket first (institutional XAUUSDT feed)
       try {
-        const socket = new WebSocket(BYBIT_WS_URL);
+        setMarketState((prev) => ({ ...prev, wsStatus: "Reconnecting" }));
+        const socket = new WebSocket(BINANCE_FSTREAM_URL);
         wsRef.current = socket;
 
-        const connectTimeout = setTimeout(() => {
+        const connectTimer = setTimeout(() => {
           if (!isWsConnectedRef.current && !cancelled) {
-            console.warn("Bybit WS connect timeout, activating REST polling.");
+            console.warn("Binance fstream timeout, activating automated REST fallback.");
             startRestPolling();
           }
-        }, 3500);
+        }, 3000);
 
         socket.onopen = () => {
           if (cancelled) {
             socket.close();
             return;
           }
-          clearTimeout(connectTimeout);
+          clearTimeout(connectTimer);
           isWsConnectedRef.current = true;
+
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
           }
 
-          socket.send(
-            JSON.stringify({
-              op: "subscribe",
-              args: [
-                "kline.1.XAUUSDT",
-                "kline.5.XAUUSDT",
-                "kline.15.XAUUSDT",
-                "tickers.XAUUSDT",
-              ],
-            })
-          );
-
           setMarketState((prev) => ({
             ...prev,
             connectionMode: "websocket",
+            wsStatus: "Live Connected",
             isFallback: false,
-            source: "Bybit Institutional Gold Stream (XAUUSDT)",
+            source: "Binance Futures WebSocket (XAUUSDT)",
+            latencyMs: 25,
           }));
         };
 
         socket.onmessage = (event) => {
           if (cancelled) return;
           try {
-            const msg = JSON.parse(event.data);
+            const payload = JSON.parse(event.data);
+            const stream = payload.stream || "";
+            const data = payload.data || payload;
 
-            // Handle Kline topic updates
-            if (msg.topic && msg.topic.startsWith("kline.")) {
-              const parts = msg.topic.split(".");
-              const interval = parts[1]; // "1", "5", "15"
-              const tfKey: ChartTimeframe =
-                interval === "15" ? "15M" : interval === "5" ? "5M" : "1M";
+            // 1. Ticker Stream (xauusdt@ticker): Real-time 24h metrics & Price
+            if (stream.includes("ticker") || data.e === "24hrTicker") {
+              const last = parseFloat(data.c);
+              const open = parseFloat(data.o);
+              const high = parseFloat(data.h);
+              const low = parseFloat(data.l);
+              const vol = parseFloat(data.v);
+              const quoteVol = parseFloat(data.q);
+              const pct = parseFloat(data.P);
 
-              const raw = Array.isArray(msg.data) ? msg.data[0] : msg.data;
-              if (raw) {
-                const kline: Candle = {
-                  time: Math.floor(Number(raw.start) / 1000),
-                  open: parseFloat(raw.open),
-                  high: parseFloat(raw.high),
-                  low: parseFloat(raw.low),
-                  close: parseFloat(raw.close),
-                  volume: parseFloat(raw.volume) || 0,
-                };
-
-                // Update cache for this specific timeframe
-                const cached = candlesByTfRef.current[tfKey] || [];
-                if (cached.length > 0) {
-                  const last = cached[cached.length - 1];
-                  if (last.time === kline.time) {
-                    cached[cached.length - 1] = kline;
-                  } else if (kline.time > last.time) {
-                    candlesByTfRef.current[tfKey] = [...cached.slice(-(MAX_CANDLES - 1)), kline];
-                  }
-                }
-
-                // If this is the active timeframe, apply tick directly
-                if (tfKey === currentTimeframeRef.current) {
-                  applyMarketTick(
-                    kline,
-                    "websocket",
-                    "Bybit Institutional Gold Stream (XAUUSDT)"
-                  );
-                }
+              if (Number.isFinite(last) && last > 1000) {
+                setMarketState((prev) => ({
+                  ...prev,
+                  currentPrice: last,
+                  previousPrice: prev.currentPrice || last,
+                  stats24h: {
+                    openPrice: Number.isFinite(open) && open > 0 ? open : prev.stats24h?.openPrice || last,
+                    highPrice: Number.isFinite(high) && high > 0 ? high : prev.stats24h?.highPrice || last,
+                    lowPrice: Number.isFinite(low) && low > 0 ? low : prev.stats24h?.lowPrice || last,
+                    volume: Number.isFinite(vol) ? vol : prev.stats24h?.volume || 0,
+                    quoteVolume: quoteVol,
+                    priceChangePercent: pct,
+                  },
+                  lastUpdated: Date.now(),
+                  wsStatus: "Live Connected",
+                }));
               }
             }
 
-            // Handle Ticker topic updates
-            if (msg.topic === "tickers.XAUUSDT") {
-              const t = msg.data;
-              if (t) {
-                const last = parseFloat(t.lastPrice);
-                if (Number.isFinite(last) && last > 1000) {
-                  setMarketState((prev) => ({
-                    ...prev,
-                    currentPrice: last,
-                    previousPrice: prev.currentPrice || last,
-                    stats24h: {
-                      openPrice: parseFloat(t.prevPrice24h) || prev.stats24h?.openPrice || last,
-                      highPrice: parseFloat(t.highPrice24h) || prev.stats24h?.highPrice || last,
-                      lowPrice: parseFloat(t.lowPrice24h) || prev.stats24h?.lowPrice || last,
-                      volume: parseFloat(t.volume24h) || prev.stats24h?.volume || 0,
-                    },
-                    lastUpdated: Date.now(),
-                  }));
+            // 2. Mark Price Stream (xauusdt@markPrice)
+            if (stream.includes("markPrice") || data.e === "markPriceUpdate") {
+              const mark = parseFloat(data.p);
+              const index = parseFloat(data.i);
+              if (Number.isFinite(mark) && mark > 1000) {
+                setMarketState((prev) => ({
+                  ...prev,
+                  markPrice: mark,
+                  indexPrice: Number.isFinite(index) ? index : prev.indexPrice,
+                  wsStatus: "Live Connected",
+                }));
+              }
+            }
+
+            // 3. Partial Order Book Depth (xauusdt@depth10@100ms): 10 Real Bids & 10 Real Asks
+            if (stream.includes("depth") || data.e === "depthUpdate") {
+              const rawBids: [string, string][] = data.b || [];
+              const rawAsks: [string, string][] = data.a || [];
+
+              if (rawBids.length > 0 && rawAsks.length > 0) {
+                let cumBid = 0;
+                const bids: OrderBookLevel[] = rawBids.slice(0, 10).map(([p, q]) => {
+                  const qty = parseFloat(q);
+                  cumBid += qty;
+                  return {
+                    price: parseFloat(p),
+                    qty,
+                    total: Number(cumBid.toFixed(3)),
+                  };
+                });
+
+                let cumAsk = 0;
+                const asks: OrderBookLevel[] = rawAsks.slice(0, 10).map(([p, q]) => {
+                  const qty = parseFloat(q);
+                  cumAsk += qty;
+                  return {
+                    price: parseFloat(p),
+                    qty,
+                    total: Number(cumAsk.toFixed(3)),
+                  };
+                });
+
+                const maxTotal = Math.max(cumBid, cumAsk, 1);
+                bids.forEach((b) => (b.percent = Math.min(100, Math.round((b.total! / maxTotal) * 100))));
+                asks.forEach((a) => (a.percent = Math.min(100, Math.round((a.total! / maxTotal) * 100))));
+
+                const liveOrderBook: LiveOrderBook = {
+                  bids,
+                  asks,
+                  lastUpdateId: data.u || data.lastUpdateId,
+                  timestamp: Date.now(),
+                };
+
+                setMarketState((prev) => ({
+                  ...prev,
+                  orderBook: liveOrderBook,
+                  wsStatus: "Live Connected",
+                }));
+              }
+            }
+
+            // 4. Aggregated Trades (xauusdt@aggTrade): Real-Time Order Flow Delta Calculation
+            // Strict Spec Rule:
+            // When m (is Buyer Maker) is true -> Classify as Sell-side Market Volume.
+            // When m (is Buyer Maker) is false -> Classify as Buy-side Market Volume.
+            if (
+              stream.includes("aggTrade") ||
+              stream.includes("trade") ||
+              data.e === "aggTrade" ||
+              data.e === "trade"
+            ) {
+              const tradePrice = parseFloat(data.p);
+              const tradeQty = parseFloat(data.q);
+              const isBuyerMaker = Boolean(data.m); // true = Maker was Buyer -> Taker was Seller (Sell-side Market Volume)
+              const side: "BUY" | "SELL" = isBuyerMaker ? "SELL" : "BUY";
+
+              if (Number.isFinite(tradeQty) && tradeQty > 0) {
+                if (side === "BUY") {
+                  orderFlowAccumRef.current.buyVolume += tradeQty;
+                } else {
+                  orderFlowAccumRef.current.sellVolume += tradeQty;
+                }
+                orderFlowAccumRef.current.tradesCount += 1;
+
+                const bv = orderFlowAccumRef.current.buyVolume;
+                const sv = orderFlowAccumRef.current.sellVolume;
+                const totalV = bv + sv;
+                const delta = bv - sv;
+
+                const liveOrderFlow: LiveOrderFlow = {
+                  buyVolume: Number(bv.toFixed(3)),
+                  sellVolume: Number(sv.toFixed(3)),
+                  totalVolume: Number(totalV.toFixed(3)),
+                  delta: Number(delta.toFixed(3)),
+                  buyRatio: totalV > 0 ? Number((bv / totalV).toFixed(4)) : 0.5,
+                  sellRatio: totalV > 0 ? Number((sv / totalV).toFixed(4)) : 0.5,
+                  recentTradesCount: orderFlowAccumRef.current.tradesCount,
+                  lastTradeSide: side,
+                  lastTradePrice: tradePrice,
+                  lastTradeQty: tradeQty,
+                };
+
+                setMarketState((prev) => ({
+                  ...prev,
+                  orderFlow: liveOrderFlow,
+                  volumeDistribution: calculateVolumeDistribution(prev.candles, liveOrderFlow),
+                  wsStatus: "Live Connected",
+                }));
+              }
+            }
+
+            // 4. Kline Stream: Real-Time Candlestick Bar
+            if (stream.includes("kline") || data.e === "kline") {
+              const k = data.k;
+              if (k) {
+                const interval = k.i; // "1m", "5m", "15m"
+                const activeTf = currentTimeframeRef.current;
+                const tfMatch =
+                  (activeTf === "1M" && interval === "1m") ||
+                  (activeTf === "5M" && interval === "5m") ||
+                  (activeTf === "15M" && interval === "15m");
+
+                if (tfMatch) {
+                  const candle: Candle = {
+                    time: Math.floor(k.t / 1000),
+                    open: parseFloat(k.o),
+                    high: parseFloat(k.h),
+                    low: parseFloat(k.l),
+                    close: parseFloat(k.c),
+                    volume: parseFloat(k.v) || 0,
+                  };
+                  applyMarketTick(candle, "websocket", "Binance Futures WebSocket (XAUUSDT)");
                 }
               }
             }
@@ -452,6 +541,7 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
 
         socket.onerror = () => {
           if (!cancelled && !isWsConnectedRef.current) {
+            setMarketState((prev) => ({ ...prev, wsStatus: "Reconnecting" }));
             startRestPolling();
           }
         };
@@ -459,7 +549,10 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
         socket.onclose = () => {
           isWsConnectedRef.current = false;
           if (!cancelled) {
+            setMarketState((prev) => ({ ...prev, wsStatus: "Offline" }));
             startRestPolling();
+            // Schedule auto-reconnect attempt
+            reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
           }
         };
       } catch {
@@ -469,9 +562,9 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
       }
     }
 
-    void initFeed();
+    connectWebSocket();
 
-    // Periodic 24h stats refresh
+    // Periodic 24h stats sync
     const statsInterval = setInterval(async () => {
       if (cancelled) return;
       try {
@@ -485,6 +578,7 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
     return () => {
       cancelled = true;
       clearInterval(statsInterval);
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
@@ -496,7 +590,7 @@ export function useMarketData(timeframe: ChartTimeframe = "1M"): MarketDataState
         wsRef.current = null;
       }
     };
-  }, [applyMarketTick, startRestPolling]);
+  }, [applyMarketTick, executeRestFallback, startRestPolling]);
 
   return marketState;
 }

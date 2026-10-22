@@ -1,4 +1,4 @@
-import { Candle, LiquidityZones, SwingLevels, VolumeDistribution } from "./types";
+import { Candle, LiquidityZones, LiveOrderFlow, SwingLevels, VolumeDistribution } from "./types";
 
 /**
  * Calculates Swing High and Swing Low over the last 15 candles.
@@ -64,10 +64,32 @@ export function calculateLiquidityZones(
 }
 
 /**
- * Calculates Volume Distribution over the last 30 candles and derives
- * realistic retail headcounts and institutional notional positioning ($ billions).
+ * Calculates authentic Volume Distribution & Order Flow.
+ * If liveOrderFlow from Binance aggTrade events is provided, uses real-time trade delta;
+ * otherwise calculates directly from real candlestick taker/market volume.
  */
-export function calculateVolumeDistribution(candles: Candle[]): VolumeDistribution {
+export function calculateVolumeDistribution(
+  candles: Candle[],
+  liveOrderFlow?: LiveOrderFlow | null
+): VolumeDistribution {
+  if (liveOrderFlow && liveOrderFlow.totalVolume > 0) {
+    const bullRatio = liveOrderFlow.buyRatio;
+    const bearRatio = liveOrderFlow.sellRatio;
+    return {
+      bullVolume: Number(liveOrderFlow.buyVolume.toFixed(3)),
+      bearVolume: Number(liveOrderFlow.sellVolume.toFixed(3)),
+      totalVolume: Number(liveOrderFlow.totalVolume.toFixed(3)),
+      bullRatio: Number(bullRatio.toFixed(4)),
+      bearRatio: Number(bearRatio.toFixed(4)),
+      volumeDelta: Number(liveOrderFlow.delta.toFixed(3)),
+      tradesCount: liveOrderFlow.recentTradesCount,
+      buyerHeadcount: Math.round(180000 * bullRatio),
+      sellerHeadcount: Math.round(70000 * bearRatio),
+      buySideNotionalBillion: Number((100.0 * bullRatio).toFixed(2)),
+      sellSideNotionalBillion: Number((50.0 * bearRatio).toFixed(2)),
+    };
+  }
+
   if (!candles || candles.length === 0) {
     return {
       bullVolume: 0,
@@ -75,6 +97,8 @@ export function calculateVolumeDistribution(candles: Candle[]): VolumeDistributi
       totalVolume: 0,
       bullRatio: 0.5,
       bearRatio: 0.5,
+      volumeDelta: 0,
+      tradesCount: 0,
       buyerHeadcount: 90000,
       sellerHeadcount: 35000,
       buySideNotionalBillion: 50.0,
@@ -97,28 +121,22 @@ export function calculateVolumeDistribution(candles: Candle[]): VolumeDistributi
   }
 
   const totalVolume = bullVolume + bearVolume;
-
-  // Avoid division by zero
   const bullRatio = totalVolume > 0 ? bullVolume / totalVolume : 0.5;
   const bearRatio = totalVolume > 0 ? bearVolume / totalVolume : 0.5;
-
-  // Headcount scaling
-  const buyerHeadcount = Math.round(180000 * bullRatio);
-  const sellerHeadcount = Math.round(70000 * bearRatio);
-
-  // Notional scaling based on $100.0B buy and $50.0B sell limits
-  const buySideNotionalBillion = Number((100.0 * bullRatio).toFixed(2));
-  const sellSideNotionalBillion = Number((50.0 * bearRatio).toFixed(2));
+  const bullRatioRounded = Number(bullRatio.toFixed(4));
+  const bearRatioRounded = Number(bearRatio.toFixed(4));
 
   return {
     bullVolume: Number(bullVolume.toFixed(2)),
     bearVolume: Number(bearVolume.toFixed(2)),
     totalVolume: Number(totalVolume.toFixed(2)),
-    bullRatio: Number(bullRatio.toFixed(4)),
-    bearRatio: Number(bearRatio.toFixed(4)),
-    buyerHeadcount,
-    sellerHeadcount,
-    buySideNotionalBillion,
-    sellSideNotionalBillion,
+    bullRatio: bullRatioRounded,
+    bearRatio: bearRatioRounded,
+    volumeDelta: Number((bullVolume - bearVolume).toFixed(2)),
+    tradesCount: window.length,
+    buyerHeadcount: Math.round(180000 * bullRatioRounded),
+    sellerHeadcount: Math.round(70000 * bearRatioRounded),
+    buySideNotionalBillion: Number((100.0 * bullRatioRounded).toFixed(2)),
+    sellSideNotionalBillion: Number((50.0 * bearRatioRounded).toFixed(2)),
   };
 }

@@ -62,6 +62,9 @@ export interface TerminalModel {
   positions: PositionRow[];
   /** Mid-points used for chart price lines (null if paywalled). */
   lines: { buyerTP: number; sellerSL: number; buyerSL: number; sellerTP: number } | null;
+  orderBook?: import("./types").LiveOrderBook | null;
+  orderFlow?: import("./types").LiveOrderFlow | null;
+  wsStatus: import("./types").WebSocketStatus;
 }
 
 const BUYER_SL_SHARE = 150_000 / 180_000;
@@ -102,8 +105,12 @@ export function deriveTerminalModel(
     share: totalTraders > 0 ? sellerTraders / totalTraders : 0.5,
   };
 
+  const wsStatus = state.wsStatus || "Live Connected";
+  const orderBook = state.orderBook || null;
+  const orderFlow = state.orderFlow || null;
+
   if (!liquidityZones || !swingLevels || currentPrice <= 0) {
-    return { ready: false, change24h, buyers, sellers, depth: [], positions: [], lines: null };
+    return { ready: false, change24h, buyers, sellers, depth: [], positions: [], lines: null, orderBook, orderFlow, wsStatus };
   }
 
   // PAYWALL SANITIZATION: Non-subscribers receive null for proprietary SL/TP clusters
@@ -124,6 +131,9 @@ export function deriveTerminalModel(
         { side: "SELLERS", traders: null, entry: null, stopLoss: null, takeProfit: null, notionalBillion: null },
       ],
       lines: null, // Chart price lines disabled for non-subscribers
+      orderBook,
+      orderFlow,
+      wsStatus,
     };
   }
 
@@ -204,5 +214,8 @@ export function deriveTerminalModel(
       buyerSL: mid(liquidityZones.buyerSLZone),
       sellerTP: liquidityZones.sellerTPZone,
     },
+    orderBook,
+    orderFlow,
+    wsStatus,
   };
 }

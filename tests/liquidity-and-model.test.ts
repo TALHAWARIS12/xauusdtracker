@@ -29,6 +29,7 @@ describe("Liquidity Engine & Paywall Model Sanitization", () => {
       volume: 50000,
     },
     connectionMode: "websocket",
+    wsStatus: "Live Connected",
     lastUpdated: Date.now(),
     error: null,
     isFallback: false,

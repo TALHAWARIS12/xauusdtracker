@@ -167,6 +167,8 @@ export function DashboardClient({ initialSubscribed, userEmail }: DashboardClien
       <MarketPressureCards
         buyers={model.buyers}
         sellers={model.sellers}
+        orderFlow={market.orderFlow}
+        stats24h={market.stats24h}
         isSubscribed={isSubscribed}
       />
 
@@ -244,6 +246,7 @@ export function DashboardClient({ initialSubscribed, userEmail }: DashboardClien
             rows={model.depth}
             currentPrice={market.currentPrice}
             isSubscribed={isSubscribed}
+            orderBook={market.orderBook}
           />
         </div>
       </div>

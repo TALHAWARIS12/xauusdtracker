@@ -1,11 +1,14 @@
 "use client";
 
-import { Users, Lock, BarChart3, ShieldCheck, Zap } from "lucide-react";
-import { formatBillions, formatInt, formatPct, type SideSummary } from "@/lib/market/terminal-model";
+import { Users, Lock, BarChart3, Zap, ArrowUpRight, ArrowDownRight, Activity } from "lucide-react";
+import { formatPct, type SideSummary } from "@/lib/market/terminal-model";
+import { LiveOrderFlow, Ticker24h } from "@/lib/market/types";
 
 interface MarketPressureCardsProps {
   buyers: SideSummary;
   sellers: SideSummary;
+  orderFlow?: LiveOrderFlow | null;
+  stats24h?: Ticker24h | null;
   isSubscribed: boolean;
   className?: string;
 }
@@ -13,18 +16,34 @@ interface MarketPressureCardsProps {
 export function MarketPressureCards({
   buyers,
   sellers,
+  orderFlow,
+  stats24h,
   isSubscribed,
   className = "",
 }: MarketPressureCardsProps) {
-  const buyerPct = Math.min(100, Math.max(0, buyers.share * 100));
-  const sellerPct = Math.min(100, Math.max(0, sellers.share * 100));
-  const totalNotionalBillion = Number(
-    (buyers.notionalBillion + sellers.notionalBillion).toFixed(1)
-  );
+  // Use authentic live order flow if streaming, otherwise fallback to candle-calculated ratios
+  const buyRatio = orderFlow ? orderFlow.buyRatio : buyers.share;
+  const sellRatio = orderFlow ? orderFlow.sellRatio : sellers.share;
+  const buyPct = Math.min(100, Math.max(0, buyRatio * 100));
+  const sellPct = Math.min(100, Math.max(0, sellRatio * 100));
+
+  const buyVolFormatted = orderFlow
+    ? orderFlow.buyVolume.toLocaleString(undefined, { maximumFractionDigits: 1 })
+    : "—";
+  const sellVolFormatted = orderFlow
+    ? orderFlow.sellVolume.toLocaleString(undefined, { maximumFractionDigits: 1 })
+    : "—";
+  const delta = orderFlow ? orderFlow.delta : 0;
+  const isNetBuying = delta >= 0;
+
+  const quoteVolumeM =
+    stats24h?.quoteVolume && stats24h.quoteVolume > 0
+      ? (stats24h.quoteVolume / 1_000_000).toFixed(1)
+      : null;
 
   return (
     <section
-      aria-label="Institutional Order Flow & Volume Pressure"
+      aria-label="Binance Real-Time Order Flow & Volume Delta"
       className={`space-y-4 ${className}`}
       id="market-pressure-analytics"
     >
@@ -35,32 +54,46 @@ export function MarketPressureCards({
             <BarChart3 className="h-3.5 w-3.5" />
           </div>
           <span className="text-xs font-semibold uppercase tracking-wider text-white">
-            Market Participant Pressure & Volume Flow
+            Binance Futures Live Order Flow (XAUUSDT)
           </span>
         </div>
-        <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
-          <Zap className="h-3 w-3 text-gold-300" />
-          <span>30-Bar Rolling Volume Window · Billions ($B) Model</span>
-        </span>
+        <div className="flex items-center gap-2">
+          {orderFlow?.lastTradeSide && (
+            <span
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tabular ${
+                orderFlow.lastTradeSide === "BUY"
+                  ? "bg-bull-400/10 text-bull-300 border border-bull-400/30"
+                  : "bg-bear-400/10 text-bear-300 border border-bear-400/30"
+              }`}
+            >
+              <Activity className="h-2.5 w-2.5 animate-pulse" />
+              Last: {orderFlow.lastTradeSide} @ ${orderFlow.lastTradePrice?.toFixed(2)} (
+              {orderFlow.lastTradeQty?.toFixed(2)} oz)
+            </span>
+          )}
+          <span className="text-[11px] text-slate-400 flex items-center gap-1.5 hidden sm:flex">
+            <Zap className="h-3 w-3 text-gold-300" />
+            <span>Real-Time aggTrade Volume Delta</span>
+          </span>
+        </div>
       </div>
 
       {/* Grid of Two Pressure Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* BUY-SIDE PRESSURE CARD */}
+        {/* BUY-SIDE MARKET VOLUME CARD */}
         <article
           className="card relative overflow-hidden p-5 transition-colors border-bull-400/20 bg-gradient-to-br from-bull-500/[0.04] via-transparent to-transparent hover:border-bull-400/40"
           id="buy-side-pressure-card"
         >
-          {/* Subtle Green Ambient Glow */}
           <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-bull-400/10 blur-2xl" />
 
           <div className="relative flex items-center justify-between">
             <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-bull-300">
-              <Users className="h-4 w-4 text-bull-400" />
-              Buy-Side Pressure
+              <ArrowUpRight className="h-4 w-4 text-bull-400" />
+              Buy-Side Market Flow
             </span>
             <span className="inline-flex items-center rounded-lg border border-bull-400/30 bg-bull-400/10 px-2 py-0.5 text-xs font-extrabold text-bull-300 tabular">
-              {formatPct(buyers.share)}
+              {buyPct.toFixed(1)}%
             </span>
           </div>
 
@@ -68,29 +101,27 @@ export function MarketPressureCards({
             <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-bull-300 tabular">
               {isSubscribed ? (
                 <>
-                  {formatInt(buyers.traders)}
+                  {orderFlow ? buyVolFormatted : `${buyPct.toFixed(1)}%`}
                   <span className="ml-2 text-xs font-medium text-slate-400">
-                    buyers (proxy units)
+                    {orderFlow ? "contracts / oz" : "share"}
                   </span>
                 </>
               ) : (
                 <span className="inline-flex items-center gap-2 text-slate-400 text-2xl">
                   <Lock className="h-5 w-5 text-gold-300" />
                   <span>••••••••</span>
-                  <span className="text-xs text-gold-300/80 font-normal">
-                    (Pro Only)
-                  </span>
+                  <span className="text-xs text-gold-300/80 font-normal">(Pro Only)</span>
                 </span>
               )}
             </div>
           </div>
 
           <div className="relative mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
-            <span className="text-slate-400">Modelled Buy Volume</span>
+            <span className="text-slate-400">Market Buy Orders (Taker)</span>
             <span className="font-bold text-white tabular">
               {isSubscribed ? (
-                <span className="text-bull-300 font-extrabold text-sm">
-                  {formatBillions(buyers.notionalBillion)}
+                <span className="text-bull-300 font-extrabold text-xs">
+                  {orderFlow ? `${orderFlow.recentTradesCount} live events` : "Streaming"}
                 </span>
               ) : (
                 <span className="text-slate-500 flex items-center gap-1">
@@ -101,21 +132,20 @@ export function MarketPressureCards({
           </div>
         </article>
 
-        {/* SELL-SIDE PRESSURE CARD */}
+        {/* SELL-SIDE MARKET VOLUME CARD */}
         <article
           className="card relative overflow-hidden p-5 transition-colors border-bear-400/20 bg-gradient-to-br from-bear-500/[0.04] via-transparent to-transparent hover:border-bear-400/40"
           id="sell-side-pressure-card"
         >
-          {/* Subtle Red Ambient Glow */}
           <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-bear-400/10 blur-2xl" />
 
           <div className="relative flex items-center justify-between">
             <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-bear-300">
-              <Users className="h-4 w-4 text-bear-400" />
-              Sell-Side Pressure
+              <ArrowDownRight className="h-4 w-4 text-bear-400" />
+              Sell-Side Market Flow
             </span>
             <span className="inline-flex items-center rounded-lg border border-bear-400/30 bg-bear-400/10 px-2 py-0.5 text-xs font-extrabold text-bear-300 tabular">
-              {formatPct(sellers.share)}
+              {sellPct.toFixed(1)}%
             </span>
           </div>
 
@@ -123,29 +153,27 @@ export function MarketPressureCards({
             <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-bear-300 tabular">
               {isSubscribed ? (
                 <>
-                  {formatInt(sellers.traders)}
+                  {orderFlow ? sellVolFormatted : `${sellPct.toFixed(1)}%`}
                   <span className="ml-2 text-xs font-medium text-slate-400">
-                    sellers (proxy units)
+                    {orderFlow ? "contracts / oz" : "share"}
                   </span>
                 </>
               ) : (
                 <span className="inline-flex items-center gap-2 text-slate-400 text-2xl">
                   <Lock className="h-5 w-5 text-gold-300" />
                   <span>••••••••</span>
-                  <span className="text-xs text-gold-300/80 font-normal">
-                    (Pro Only)
-                  </span>
+                  <span className="text-xs text-gold-300/80 font-normal">(Pro Only)</span>
                 </span>
               )}
             </div>
           </div>
 
           <div className="relative mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
-            <span className="text-slate-400">Modelled Sell Volume</span>
+            <span className="text-slate-400">Market Sell Orders (Taker)</span>
             <span className="font-bold text-white tabular">
               {isSubscribed ? (
-                <span className="text-bear-300 font-extrabold text-sm">
-                  {formatBillions(sellers.notionalBillion)}
+                <span className="text-bear-300 font-extrabold text-xs">
+                  {orderFlow ? `${orderFlow.recentTradesCount} live events` : "Streaming"}
                 </span>
               ) : (
                 <span className="text-slate-500 flex items-center gap-1">
@@ -157,64 +185,28 @@ export function MarketPressureCards({
         </article>
       </div>
 
-      {/* Delta Split Bar with Billions Capacity Indicator */}
-      <div className="card p-4 space-y-2.5">
-        <div className="flex flex-wrap items-center justify-between text-xs font-semibold tabular">
-          <span className="text-bull-300 flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-bull-400 shadow-[0_0_8px_#34D399]" />
-            BUY DELTA {buyerPct.toFixed(1)}%
-            {isSubscribed && (
-              <span className="text-slate-400 text-[11px] font-normal">
-                ({formatBillions(buyers.notionalBillion)})
-              </span>
-            )}
-          </span>
-
-          <span className="text-slate-400 text-[11px] hidden sm:inline tracking-wider">
-            {isSubscribed
-              ? `Total Market Depth: $${totalNotionalBillion}B Notional Capacity`
-              : "Subscribe to view live billions volume & participant counts"}
-          </span>
-
-          <span className="text-bear-300 flex items-center gap-1.5">
-            {isSubscribed && (
-              <span className="text-slate-400 text-[11px] font-normal">
-                ({formatBillions(sellers.notionalBillion)})
-              </span>
-            )}
-            {sellerPct.toFixed(1)}% SELL DELTA
-            <span className="h-2 w-2 rounded-full bg-bear-400 shadow-[0_0_8px_#FB7185]" />
+      {/* Real-time Order Flow Delta Status Banner */}
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-slate-400">Cumulative Volume Delta:</span>
+          <span
+            className={`font-extrabold tabular px-2 py-0.5 rounded ${
+              isNetBuying
+                ? "bg-bull-400/10 text-bull-300 border border-bull-400/20"
+                : "bg-bear-400/10 text-bear-300 border border-bear-400/20"
+            }`}
+          >
+            {isNetBuying ? "+" : ""}
+            {delta.toFixed(2)} oz ({isNetBuying ? "NET BUYING PRESSURE" : "NET SELLING PRESSURE"})
           </span>
         </div>
 
-        {/* Dual Progress Bar */}
-        <div
-          className="h-3 w-full rounded-full overflow-hidden flex bg-white/[0.05] p-0.5 border border-white/10"
-          role="progressbar"
-          aria-valuenow={Math.round(buyerPct)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Buyer vs Seller Volume Share"
-        >
-          <div
-            className="h-full rounded-l-full bg-gradient-to-r from-bull-500 to-bull-300 transition-[width] duration-700 ease-out shadow-[0_0_12px_rgba(52,211,153,0.5)]"
-            style={{ width: `${buyerPct}%` }}
-          />
-          <div
-            className="h-full flex-1 rounded-r-full bg-gradient-to-r from-bear-300 to-bear-500 transition-[width] duration-700 ease-out shadow-[0_0_12px_rgba(251,113,133,0.5)]"
-          />
-        </div>
-
-        {/* Transparent Methodology Caption */}
-        <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1">
-          <span className="flex items-center gap-1">
-            <ShieldCheck className="h-3 w-3 text-gold-300/80" />
-            Institutional volume estimation normalized from 1:1 physical gold backing
-          </span>
-          <span className="tabular">
-            Sub-second Binance WebSockets Telemetry
-          </span>
-        </div>
+        {quoteVolumeM && (
+          <div className="text-slate-400 tabular flex items-center gap-1.5">
+            <span>24h Binance Futures Volume:</span>
+            <span className="font-bold text-white">${quoteVolumeM}M USDT</span>
+          </div>
+        )}
       </div>
     </section>
   );
