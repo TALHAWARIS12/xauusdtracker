@@ -67,6 +67,8 @@ export function CheckoutClient({ initialPlanId = "monthly", userEmail }: Checkou
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoOption>("USDT_TRC20");
   const [copied, setCopied] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isNowPaymentsProcessing, setIsNowPaymentsProcessing] = useState<boolean>(false);
+  const [nowPaymentsError, setNowPaymentsError] = useState<string | null>(null);
 
   // Card Form State
   const [cardNumber, setCardNumber] = useState<string>("4242 • 4242 • 4242 • 4242");
@@ -86,6 +88,36 @@ export function CheckoutClient({ initialPlanId = "monthly", userEmail }: Checkou
     navigator.clipboard.writeText(cryptoInfo.address);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleNowPaymentsCheckout = async () => {
+    setIsNowPaymentsProcessing(true);
+    setNowPaymentsError(null);
+    try {
+      const res = await fetch("/api/checkout/nowpayments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id }),
+      });
+
+      if (res.status === 401) {
+        router.push(`/login?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan.id}`)}`);
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data.checkoutUrl) {
+        throw new Error(data.error || "Failed to initialize NOWPayments checkout session.");
+      }
+
+      // Redirect directly to live NOWPayments checkout invoice
+      window.location.href = data.checkoutUrl;
+    } catch (err: any) {
+      console.error("NOWPayments checkout error:", err);
+      setNowPaymentsError(err?.message || "Failed to launch crypto checkout.");
+    } finally {
+      setIsNowPaymentsProcessing(false);
+    }
   };
 
   const handleCompletePayment = async (method: "CARD" | "CRYPTO") => {
@@ -432,34 +464,69 @@ export function CheckoutClient({ initialPlanId = "monthly", userEmail }: Checkou
                   <div className="rounded-lg bg-gold-400/10 border border-gold-300/30 p-3 text-[11px] text-gold-200 flex items-start gap-2">
                     <Zap className="h-4 w-4 text-gold-300 shrink-0 mt-0.5" />
                     <span>
-                      <strong>Sandbox Simulation Active:</strong> You do not need real tokens or testnet gas. Click below to simulate an on-chain transaction.
+                      <strong>NOWPayments Live Gateway Connected:</strong> Accepts USDT, BTC, ETH, SOL, LTC and 200+ coins. Click below to launch the hosted crypto payment page.
                     </span>
                   </div>
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-2 space-y-3">
+                  {nowPaymentsError && (
+                    <div className="rounded-lg bg-bear-400/10 border border-bear-400/30 p-3 text-xs text-bear-300">
+                      {nowPaymentsError}
+                    </div>
+                  )}
+
+                  {/* Primary: Live NOWPayments Checkout */}
                   <button
                     type="button"
-                    disabled={isProcessing}
-                    onClick={() => handleCompletePayment("CRYPTO")}
-                    className="btn-primary w-full py-3 text-sm font-semibold shadow-gold cursor-pointer"
-                    id="simulate-crypto-payment-btn"
+                    disabled={isNowPaymentsProcessing || isProcessing}
+                    onClick={handleNowPaymentsCheckout}
+                    className="btn-primary w-full py-3.5 text-sm font-bold shadow-gold cursor-pointer"
+                    id="nowpayments-checkout-btn"
                   >
-                    {isProcessing ? (
+                    {isNowPaymentsProcessing ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin text-ink-950" />
-                        <span>Simulating On-Chain Confirmation...</span>
+                        <span>Connecting to NOWPayments Gateway...</span>
                       </>
                     ) : (
                       <>
                         <Zap className="h-4 w-4" />
-                        <span>Simulate Successful Payment</span>
+                        <span>Pay with Crypto via NOWPayments (${plan.priceUsd})</span>
+                        <ArrowRight className="h-4 w-4" />
                       </>
                     )}
                   </button>
-                  <p className="mt-2 text-center text-[11px] text-slate-500">
-                    Instant confirmation · Updates user state to isSubscribed: true
+
+                  <p className="text-center text-[11px] text-slate-400">
+                    Direct hosted checkout · Automatic blockchain confirmation & clearance
                   </p>
+
+                  <div className="relative flex py-1 items-center">
+                    <div className="flex-grow border-t border-white/[0.06]"></div>
+                    <span className="flex-shrink mx-3 text-[10px] uppercase text-slate-500 font-mono">
+                      or developer test mode
+                    </span>
+                    <div className="flex-grow border-t border-white/[0.06]"></div>
+                  </div>
+
+                  {/* Secondary: Sandbox Simulation */}
+                  <button
+                    type="button"
+                    disabled={isProcessing || isNowPaymentsProcessing}
+                    onClick={() => handleCompletePayment("CRYPTO")}
+                    className="btn-secondary w-full py-2.5 text-xs font-semibold text-slate-300 cursor-pointer"
+                    id="simulate-crypto-payment-btn"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Simulating Test Confirmation...</span>
+                      </>
+                    ) : (
+                      <span>Simulate Offline Sandbox Confirmation</span>
+                    )}
+                  </button>
                 </div>
               </div>
             )}

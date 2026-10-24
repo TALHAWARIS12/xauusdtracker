@@ -91,13 +91,22 @@ export function PricingMatrix({ isSubscribed = false }: PricingMatrixProps) {
               {/* Action Button */}
               <div className="pt-6 mt-6 border-t border-white/[0.06]">
                 {isSubscribed ? (
-                  <Link
-                    href="/dashboard"
-                    className="btn-secondary w-full py-2.5 text-xs font-semibold"
-                  >
-                    <span>Clearance Active</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
+                  <div className="space-y-2">
+                    <Link
+                      href="/dashboard"
+                      className="btn-secondary w-full py-2.5 text-xs font-semibold"
+                    >
+                      <span>Clearance Active</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                    <Link
+                      href={`/checkout?plan=${plan.id}`}
+                      className="btn-ghost w-full py-1 text-[11px] text-slate-400 hover:text-gold-300 block text-center"
+                      id={`select-plan-${plan.id}-btn`}
+                    >
+                      Renew or Change Tier →
+                    </Link>
+                  </div>
                 ) : (
                   <Link
                     href={`/checkout?plan=${plan.id}`}
