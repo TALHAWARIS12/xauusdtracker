@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -21,6 +21,8 @@ import { PRICING_PLANS, getPlanById, PlanTier } from "@/lib/plan-config";
 interface CheckoutClientProps {
   initialPlanId?: string;
   userEmail?: string | null;
+  currentPlanId?: string | null;
+  isSubscribed?: boolean;
 }
 
 type PaymentTab = "card" | "crypto";
@@ -60,7 +62,12 @@ const CRYPTO_CONFIG: Record<
   },
 };
 
-export function CheckoutClient({ initialPlanId = "monthly", userEmail }: CheckoutClientProps) {
+export function CheckoutClient({
+  initialPlanId = "monthly",
+  userEmail,
+  currentPlanId = null,
+  isSubscribed = false,
+}: CheckoutClientProps) {
   const router = useRouter();
   const [selectedPlanId, setSelectedPlanId] = useState<string>(initialPlanId);
   const [activeTab, setActiveTab] = useState<PaymentTab>("card");
@@ -69,6 +76,15 @@ export function CheckoutClient({ initialPlanId = "monthly", userEmail }: Checkou
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isNowPaymentsProcessing, setIsNowPaymentsProcessing] = useState<boolean>(false);
   const [nowPaymentsError, setNowPaymentsError] = useState<string | null>(null);
+
+  // Clean up any stale cookies on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("sandbox_pro");
+      document.cookie = "sandbox_pro=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "pro_access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    }
+  }, []);
 
   // Card Form State
   const [cardNumber, setCardNumber] = useState<string>("4242 • 4242 • 4242 • 4242");
@@ -133,26 +149,28 @@ export function CheckoutClient({ initialPlanId = "monthly", userEmail }: Checkou
         }),
       });
 
-      if (!res.ok) {
-        throw new Error("Sandbox payment failed.");
+      if (res.status === 401) {
+        router.push(`/login?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan.id}`)}`);
+        return;
       }
 
-      // Persist in localStorage for client session
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Sandbox payment failed.");
+      }
+
+      // Clean up legacy cookies
       if (typeof window !== "undefined") {
-        localStorage.setItem("sandbox_pro", "true");
-        document.cookie = "sandbox_pro=true; path=/; max-age=2592000; SameSite=Lax";
+        localStorage.removeItem("sandbox_pro");
+        document.cookie = "sandbox_pro=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "pro_access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       }
 
       // Instant redirect to /dashboard?payment=success
       router.push("/dashboard?payment=success");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Payment error:", err);
-      // Fallback redirect so client is never blocked
-      if (typeof window !== "undefined") {
-        localStorage.setItem("sandbox_pro", "true");
-        document.cookie = "sandbox_pro=true; path=/; max-age=2592000; SameSite=Lax";
-      }
-      router.push("/dashboard?payment=success");
+      alert(err?.message || "Payment simulation failed. Please ensure you are logged in.");
     } finally {
       setIsProcessing(false);
     }
@@ -182,7 +200,7 @@ export function CheckoutClient({ initialPlanId = "monthly", userEmail }: Checkou
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               1. Select Plan Interval
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {PRICING_PLANS.map((p) => {
                 const isSelected = p.id === selectedPlanId;
                 return (
@@ -190,7 +208,7 @@ export function CheckoutClient({ initialPlanId = "monthly", userEmail }: Checkou
                     key={p.id}
                     type="button"
                     onClick={() => setSelectedPlanId(p.id)}
-                    className={`rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                    className={`rounded-xl border p-3.5 text-left transition-all cursor-pointer ${
                       isSelected
                         ? "border-gold-300 bg-gold-400/10 shadow-gold"
                         : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.05]"
@@ -199,7 +217,7 @@ export function CheckoutClient({ initialPlanId = "monthly", userEmail }: Checkou
                     <span className="block text-[11px] font-medium text-slate-400">
                       {p.name}
                     </span>
-                    <span className="block font-display text-base font-bold text-white tabular mt-1">
+                    <span className="block font-display text-lg font-bold text-white tabular mt-1">
                       ${p.priceUsd}
                     </span>
                     <span className="block text-[10px] text-slate-400">
@@ -207,7 +225,7 @@ export function CheckoutClient({ initialPlanId = "monthly", userEmail }: Checkou
                     </span>
                     {p.badge && (
                       <span className="mt-1.5 inline-block text-[9px] font-bold text-gold-300">
-                        {p.id === "yearly" ? "Save 74%" : "Popular"}
+                        {p.id === "yearly" ? "Save 67%" : "Popular"}
                       </span>
                     )}
                   </button>

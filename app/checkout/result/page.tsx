@@ -18,11 +18,8 @@ export default async function CheckoutResultPage({ searchParams }: CheckoutResul
   if (isSuccess) {
     try {
       const cookieStore = await cookies();
-      cookieStore.set("sandbox_pro", "true", {
-        path: "/",
-        maxAge: 30 * 86400,
-        sameSite: "lax",
-      });
+      cookieStore.delete("sandbox_pro");
+      cookieStore.delete("pro_access");
     } catch {}
   }
 

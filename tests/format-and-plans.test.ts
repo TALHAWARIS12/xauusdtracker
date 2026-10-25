@@ -51,24 +51,18 @@ describe("Market Format Helpers", () => {
 });
 
 describe("Pricing Matrix Configuration", () => {
-  it("contains all 4 requested intervals", () => {
+  it("contains monthly and yearly subscription intervals", () => {
     const intervals = PRICING_PLANS.map((p) => p.interval);
-    expect(intervals).toEqual(["day", "week", "month", "year"]);
+    expect(intervals).toEqual(["month", "year"]);
   });
 
   it("configures the exact requested prices", () => {
-    const daily = getPlanById("daily");
-    expect(daily.priceUsd).toBe(3);
-
-    const weekly = getPlanById("weekly");
-    expect(weekly.priceUsd).toBe(10);
-
     const monthly = getPlanById("monthly");
-    expect(monthly.priceUsd).toBe(28);
+    expect(monthly.priceUsd).toBe(48);
     expect(monthly.isPopular).toBe(true);
 
     const yearly = getPlanById("yearly");
-    expect(yearly.priceUsd).toBe(88);
-    expect(yearly.badge).toContain("Save 74%");
+    expect(yearly.priceUsd).toBe(188);
+    expect(yearly.badge).toContain("Save 67%");
   });
 });

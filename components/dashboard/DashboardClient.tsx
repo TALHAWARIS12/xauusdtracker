@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { CandlestickChart, Crown, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
+import { CandlestickChart, Crown, Lock, Sparkles, Shield, EyeOff } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useMarketData } from "@/hooks/useMarketData";
 import { deriveTerminalModel } from "@/lib/market/terminal-model";
@@ -40,47 +41,28 @@ export function DashboardClient({ initialSubscribed, userEmail }: DashboardClien
   const searchParams = useSearchParams();
   const paymentParam = searchParams.get("payment");
 
-  // Subscription state: initialize from props or local storage
-  const [isSubscribed, setIsSubscribed] = useState<boolean>(initialSubscribed);
+  // Subscription state strictly initialized from database
+  const isSubscribed = initialSubscribed;
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [timeframe, setTimeframe] = useState<TimeframeOption>("1M");
 
   const market = useMarketData(timeframe);
 
-  // Check for payment=success or persistent sandbox_pro cookie/localStorage
+  // Clean up any stale test cookies/storage and handle payment success redirect modal
   useEffect(() => {
-    const isPaymentSuccess = paymentParam === "success";
-    const localPro = typeof window !== "undefined" && localStorage.getItem("sandbox_pro") === "true";
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("sandbox_pro");
+      document.cookie = "sandbox_pro=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "pro_access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    }
 
-    if (isPaymentSuccess) {
-      setIsSubscribed(true);
+    if (paymentParam === "success") {
       setShowSuccessModal(true);
       if (typeof window !== "undefined") {
-        localStorage.setItem("sandbox_pro", "true");
-        document.cookie = "sandbox_pro=true; path=/; max-age=2592000; SameSite=Lax";
-        // Clean URL query param so refresh doesn't loop modal
         window.history.replaceState({}, "", "/dashboard");
       }
-    } else if (localPro && !isSubscribed) {
-      setIsSubscribed(true);
-      document.cookie = "sandbox_pro=true; path=/; max-age=2592000; SameSite=Lax";
     }
-  }, [paymentParam, isSubscribed]);
-
-  // Toggle sandbox mode for testing
-  const handleToggleSandboxView = () => {
-    const nextState = !isSubscribed;
-    setIsSubscribed(nextState);
-    if (typeof window !== "undefined") {
-      if (nextState) {
-        localStorage.setItem("sandbox_pro", "true");
-        document.cookie = "sandbox_pro=true; path=/; max-age=2592000; SameSite=Lax";
-      } else {
-        localStorage.removeItem("sandbox_pro");
-        document.cookie = "sandbox_pro=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      }
-    }
-  };
+  }, [paymentParam]);
 
   // Active candles for selected timeframe (150 candles loaded directly per timeframe)
   const activeCandles = market.candles;
@@ -118,46 +100,48 @@ export function DashboardClient({ initialSubscribed, userEmail }: DashboardClien
 
   return (
     <div className="container-app py-8 space-y-8">
-      {/* Testing mode status pill & toggle banner */}
+      {/* Paywall status & upgrade banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
         <div className="flex items-center gap-3">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
               isSubscribed
                 ? "bg-gradient-to-r from-gold-300/20 to-gold-500/10 text-gold-200 border border-gold-300/30"
-                : "bg-white/[0.06] text-slate-300 border border-white/10"
+                : "bg-bear-400/10 text-bear-300 border border-bear-400/30"
             }`}
           >
-            {isSubscribed ? <Crown className="h-3.5 w-3.5 text-gold-300" /> : <EyeOff className="h-3.5 w-3.5" />}
+            {isSubscribed ? <Crown className="h-3.5 w-3.5 text-gold-300" /> : <Lock className="h-3.5 w-3.5 text-bear-300" />}
             {isSubscribed ? "PRO ACTIVE (ALL FEATURES UNLOCKED)" : "FREEMIUM PREVIEW (GATED VIEW)"}
           </span>
           <span className="text-xs text-slate-400 hidden md:inline">
             {isSubscribed
               ? "Viewing unthrottled real-time order books, signals & depth charts."
-              : "Detailed order book depth and signals are locked. Switch or subscribe to unlock."}
+              : "Detailed order book depth, liquidation pools and signals are locked. Subscribe to unlock full clearance."}
           </span>
         </div>
 
-        {/* Sandbox switcher button */}
-        <button
-          type="button"
-          onClick={handleToggleSandboxView}
-          className="btn-secondary text-xs py-1.5 px-3 self-start sm:self-auto cursor-pointer"
-          title="Toggle between Free and Pro views to test both states immediately"
-          id="sandbox-view-toggle-btn"
-        >
-          {isSubscribed ? (
-            <>
-              <Eye className="h-3.5 w-3.5 text-slate-400" />
-              <span>Preview Free Mode</span>
-            </>
-          ) : (
-            <>
-              <Crown className="h-3.5 w-3.5 text-gold-300" />
-              <span>Quick Unlock Pro View</span>
-            </>
-          )}
-        </button>
+        {/* Action button */}
+        {isSubscribed ? (
+          <Link
+            href="/account"
+            className="btn-secondary text-xs py-1.5 px-3 self-start sm:self-auto flex items-center gap-1.5"
+            title="Manage your subscription and billing details"
+            id="manage-sub-btn"
+          >
+            <Shield className="h-3.5 w-3.5 text-gold-300" />
+            <span>Manage Clearance</span>
+          </Link>
+        ) : (
+          <Link
+            href="/pricing"
+            className="btn-primary text-xs py-1.5 px-3.5 self-start sm:self-auto shadow-gold flex items-center gap-1.5"
+            title="Unlock unthrottled market intelligence and signals"
+            id="dashboard-unlock-pro-btn"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Unlock Pro Clearance</span>
+          </Link>
+        )}
       </div>
 
       {/* Prominent Gold Spot Widget */}

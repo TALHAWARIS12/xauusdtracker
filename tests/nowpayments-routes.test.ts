@@ -99,7 +99,7 @@ describe("NOWPayments API Route Handlers", () => {
         id: "pay_order_cuid_123",
         userId: "user_test_1",
         provider: "NOWPAYMENTS",
-        amount: 28,
+        amount: 48,
         currency: "USD",
         status: "PENDING",
       } as any);
@@ -108,7 +108,7 @@ describe("NOWPayments API Route Handlers", () => {
         id: "invoice_np_999",
         order_id: "pay_order_cuid_123",
         order_description: "XAUUSD Intelligence - Monthly Pro (/ month)",
-        price_amount: 28,
+        price_amount: 48,
         price_currency: "usd",
         invoice_url: "https://nowpayments.io/payment/?iid=invoice_np_999",
       });
@@ -134,7 +134,7 @@ describe("NOWPayments API Route Handlers", () => {
         data: expect.objectContaining({
           userId: "user_test_1",
           provider: "NOWPAYMENTS",
-          amount: 28,
+          amount: 48,
           status: "PENDING",
         }),
       });

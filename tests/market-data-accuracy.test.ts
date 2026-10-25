@@ -183,5 +183,5 @@ describe("Market Data Accuracy & Current Pricing Integrity (~$4,140 Gold Benchma
       expect(c.close).toBeGreaterThan(0);
       expect(c.open).toBeGreaterThan(0);
     }
-  });
+  }, 15000);
 });

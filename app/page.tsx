@@ -205,7 +205,7 @@ export default async function HomePage() {
               href="/checkout?plan=monthly"
               className="btn-secondary w-full sm:w-auto px-6 py-3.5 text-sm font-semibold"
             >
-              <span>Subscribe to Pro ($28/mo)</span>
+              <span>Subscribe to Pro ($48/mo)</span>
             </Link>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { getUserSubscription } from "@/lib/subscription";
 import { CheckoutClient } from "@/components/checkout/CheckoutClient";
 import type { Metadata } from "next";
 
@@ -13,6 +14,7 @@ interface CheckoutPageProps {
 
 export default async function CheckoutPage({ searchParams }: CheckoutPageProps) {
   const session = await auth();
+  const subInfo = await getUserSubscription(session?.user?.id);
   const params = await searchParams;
   const planParam = typeof params.plan === "string" ? params.plan : "monthly";
 
@@ -20,6 +22,8 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
     <CheckoutClient
       initialPlanId={planParam}
       userEmail={session?.user?.email}
+      currentPlanId={subInfo.planId}
+      isSubscribed={subInfo.isSubscribed}
     />
   );
 }

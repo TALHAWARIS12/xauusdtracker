@@ -7,33 +7,45 @@ import { PRICING_PLANS } from "@/lib/plan-config";
 
 interface PricingMatrixProps {
   isSubscribed?: boolean;
+  activePlanId?: string | null;
 }
 
-export function PricingMatrix({ isSubscribed = false }: PricingMatrixProps) {
-  const [selectedPlanId, setSelectedPlanId] = useState<string>("monthly");
+export function PricingMatrix({ isSubscribed = false, activePlanId = null }: PricingMatrixProps) {
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(activePlanId || "monthly");
 
   return (
     <div className="space-y-12" id="pricing-matrix-container">
-      {/* 4 Cards Matrix */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+      {/* 2 Subscription Cards Matrix */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch max-w-4xl mx-auto">
         {PRICING_PLANS.map((plan) => {
           const isSelected = plan.id === selectedPlanId;
           const isPopular = plan.isPopular;
           const isYearly = plan.id === "yearly";
+          const isCurrentPlan = isSubscribed && activePlanId === plan.id;
+          const isOtherPlanWhenSubscribed = isSubscribed && !isCurrentPlan;
 
           return (
             <div
               key={plan.id}
               onClick={() => setSelectedPlanId(plan.id)}
               className={`card relative flex flex-col justify-between p-6 transition-all duration-300 cursor-pointer ${
-                isSelected
+                isCurrentPlan
+                  ? "border-bull-400/60 shadow-[0_0_30px_rgba(52,211,153,0.15)] bg-gradient-to-b from-bull-950/20 to-ink-950 scale-[1.01]"
+                  : isSelected
                   ? "border-gold-300 shadow-glow bg-gradient-to-b from-ink-900 to-ink-950 scale-[1.02]"
                   : "hover:border-white/20 hover:bg-white/[0.04]"
-              } ${isPopular ? "lg:-translate-y-2" : ""}`}
+              } ${isPopular && !isCurrentPlan ? "lg:-translate-y-2" : ""}`}
               id={`pricing-card-${plan.id}`}
             >
-              {/* Badge for popular or best value */}
-              {plan.badge && (
+              {/* Badge */}
+              {isCurrentPlan ? (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="badge shadow-sm bg-gradient-to-r from-bull-400 to-bull-500 text-ink-950 font-bold flex items-center gap-1 text-[11px] px-3 py-0.5">
+                    <Check className="h-3 w-3 stroke-[3]" />
+                    CURRENT ACTIVE PLAN
+                  </span>
+                </div>
+              ) : plan.badge ? (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span
                     className={`badge shadow-sm ${
@@ -46,14 +58,21 @@ export function PricingMatrix({ isSubscribed = false }: PricingMatrixProps) {
                     {plan.badge}
                   </span>
                 </div>
-              )}
+              ) : null}
 
               <div>
                 {/* Header */}
                 <div className="border-b border-white/[0.06] pb-4">
-                  <h3 className="font-display text-lg font-bold text-white">
-                    {plan.name}
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-display text-lg font-bold text-white">
+                      {plan.name}
+                    </h3>
+                    {isCurrentPlan && (
+                      <span className="text-[10px] font-bold text-bull-300 uppercase tracking-wider bg-bull-400/10 px-2 py-0.5 rounded border border-bull-400/30">
+                        Active
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-400 mt-1 min-h-[32px] leading-relaxed">
                     {plan.description}
                   </p>
@@ -90,22 +109,33 @@ export function PricingMatrix({ isSubscribed = false }: PricingMatrixProps) {
 
               {/* Action Button */}
               <div className="pt-6 mt-6 border-t border-white/[0.06]">
-                {isSubscribed ? (
+                {isCurrentPlan ? (
                   <div className="space-y-2">
                     <Link
                       href="/dashboard"
-                      className="btn-secondary w-full py-2.5 text-xs font-semibold"
+                      className="btn-primary w-full py-2.5 text-xs font-semibold shadow-gold flex items-center justify-center gap-2"
+                      id={`active-plan-${plan.id}-btn`}
                     >
-                      <span>Clearance Active</span>
+                      <span>Clearance Active → Open Dashboard</span>
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
+                    <span className="text-[11px] text-bull-300 block text-center font-medium">
+                      ✓ Your current active tier
+                    </span>
+                  </div>
+                ) : isOtherPlanWhenSubscribed ? (
+                  <div className="space-y-2">
                     <Link
                       href={`/checkout?plan=${plan.id}`}
-                      className="btn-ghost w-full py-1 text-[11px] text-slate-400 hover:text-gold-300 block text-center"
-                      id={`select-plan-${plan.id}-btn`}
+                      className="btn-secondary w-full py-2.5 text-xs font-semibold hover:border-gold-300 hover:text-gold-200 flex items-center justify-center gap-2"
+                      id={`upgrade-plan-${plan.id}-btn`}
                     >
-                      Renew or Change Tier →
+                      <span>{isYearly ? "Upgrade to Yearly ($188/yr)" : "Switch to Monthly ($48/mo)"}</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
+                    <span className="text-[11px] text-slate-400 block text-center">
+                      {isYearly ? "Upgrade annual clearance & save 67%" : "Switch billing cycle"}
+                    </span>
                   </div>
                 ) : (
                   <Link
@@ -117,7 +147,7 @@ export function PricingMatrix({ isSubscribed = false }: PricingMatrixProps) {
                     }`}
                     id={`select-plan-${plan.id}-btn`}
                   >
-                    <span>Get Started</span>
+                    <span>Subscribe Now — ${plan.priceUsd}</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 )}

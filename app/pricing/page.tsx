@@ -1,17 +1,17 @@
 import { auth } from "@/auth";
-import { getSubscriptionStatus } from "@/lib/subscription";
+import { getUserSubscription } from "@/lib/subscription";
 import { PricingMatrix } from "@/components/pricing/PricingMatrix";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Subscription Plans & Pricing",
   description:
-    "Choose your XAU/USD gold intelligence access tier. Daily, Weekly, Monthly ($28/mo), and Yearly ($88/yr) plans available with instant Card and Crypto checkout.",
+    "Choose your XAU/USD gold intelligence access tier. Monthly ($48/mo) and Yearly ($188/yr) plans available with instant Card and Crypto checkout.",
 };
 
 export default async function PricingPage() {
   const session = await auth();
-  const isSubscribed = await getSubscriptionStatus(session?.user?.id);
+  const subInfo = await getUserSubscription(session?.user?.id);
 
   return (
     <div className="container-app py-12 space-y-10">
@@ -29,7 +29,10 @@ export default async function PricingPage() {
       </div>
 
       {/* Pricing Matrix */}
-      <PricingMatrix isSubscribed={isSubscribed} />
+      <PricingMatrix
+        isSubscribed={subInfo.isSubscribed}
+        activePlanId={subInfo.planId}
+      />
     </div>
   );
 }

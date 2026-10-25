@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signIn, signOut } from "@/auth";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 const registerSchema = z
   .object({
@@ -89,6 +90,13 @@ export async function registerUser(
       },
     });
 
+    // Clear any leftover test cookies from previous browser sessions
+    try {
+      const cookieStore = await cookies();
+      cookieStore.delete("sandbox_pro");
+      cookieStore.delete("pro_access");
+    } catch {}
+
     return {
       success: true,
     };
@@ -102,6 +110,11 @@ export async function registerUser(
 }
 
 export async function handleSignOut() {
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete("sandbox_pro");
+    cookieStore.delete("pro_access");
+  } catch {}
   await signOut({ redirectTo: "/login" });
 }
 

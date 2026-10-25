@@ -41,7 +41,7 @@ export default async function AdminPage() {
   });
   const stripeSubs = activeSubs - manualVips;
 
-  const MONTHLY_PLAN_PRICE = 28; // Standard monthly tier ($28/mo)
+  const MONTHLY_PLAN_PRICE = 48; // Standard monthly tier ($48/mo)
   const estimatedMrr = stripeSubs * MONTHLY_PLAN_PRICE;
 
   // Retrieve user directory with subscriptions

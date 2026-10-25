@@ -81,15 +81,17 @@ export async function POST(req: NextRequest) {
     // 3a. finished / confirmed
     if (normalizedStatus === "finished" || normalizedStatus === "confirmed") {
       // Calculate period duration based on plan amount
-      let durationDays = 30; // Default Monthly Pro
+      let durationDays = 30; // Default Monthly Pro ($48)
       const amount = transaction.amount;
 
-      if (amount <= 5) {
-        durationDays = 1; // Daily Pass
+      if (amount >= 100) {
+        durationDays = 365; // Yearly Pro ($188)
+      } else if (amount <= 5) {
+        durationDays = 1; // Legacy Daily Pass
       } else if (amount >= 8 && amount <= 15) {
-        durationDays = 7; // Weekly Pass
-      } else if (amount >= 75 && amount <= 150) {
-        durationDays = 365; // Yearly Pro
+        durationDays = 7; // Legacy Weekly Pass
+      } else {
+        durationDays = 30; // Monthly Pro ($48)
       }
 
       const durationMs = durationDays * 24 * 60 * 60 * 1000;
@@ -108,6 +110,8 @@ export async function POST(req: NextRequest) {
         ? String(payment_id)
         : transaction.providerReference || String(order_id);
 
+      const activePlanId = durationDays >= 365 ? "yearly" : "monthly";
+
       await prisma.$transaction([
         // Update transaction status to completed
         prisma.payment.update({
@@ -118,15 +122,17 @@ export async function POST(req: NextRequest) {
             confirmedAt: new Date(),
           },
         }),
-        // Activate/renew the user's subscription in the database
+        // Activate/renew the user's subscription in the database with the resolved planId
         prisma.subscription.upsert({
           where: { userId: transaction.userId },
           create: {
             userId: transaction.userId,
+            planId: activePlanId,
             status: "ACTIVE",
             currentPeriodEnd,
           },
           update: {
+            planId: activePlanId,
             status: "ACTIVE",
             currentPeriodEnd,
           },

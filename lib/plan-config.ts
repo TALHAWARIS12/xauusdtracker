@@ -13,46 +13,14 @@ export interface PlanTier {
 
 export const PRICING_PLANS: PlanTier[] = [
   {
-    id: "daily",
-    name: "Daily Pass",
-    priceUsd: 3,
-    interval: "day",
-    intervalLabel: "/ day",
-    billingText: "Billed daily · Instant 24h access",
-    description: "Ideal for day traders seeking real-time gold order flow for today's session.",
-    features: [
-      "24-hour full Pro access",
-      "Real-time XAU/USD tick-by-tick charts",
-      "Full order book depth & liquidation zones",
-      "Algorithmic trade setup signals",
-      "Risk & position sizing calculator",
-    ],
-  },
-  {
-    id: "weekly",
-    name: "Weekly Pass",
-    priceUsd: 10,
-    interval: "week",
-    intervalLabel: "/ week",
-    billingText: "Billed weekly · Cancel anytime",
-    description: "Great for active swing traders tracking weekly gold liquidity cycles.",
-    features: [
-      "7-day uninterrupted Pro access",
-      "London & New York session overlap alerts",
-      "Real-time order flow depth clusters",
-      "Fibonacci 0.618 expansion targets",
-      "Automated trade setup evaluation",
-    ],
-  },
-  {
     id: "monthly",
     name: "Monthly Pro",
     badge: "Most Popular",
-    priceUsd: 28,
+    priceUsd: 48,
     interval: "month",
     intervalLabel: "/ month",
     billingText: "Billed monthly · Cancel anytime",
-    description: "Our core membership for serious traders who require institutional-grade data daily.",
+    description: "Our core membership for serious traders who require institutional-grade gold data daily.",
     isPopular: true,
     features: [
       "Full zero-delay market telemetry",
@@ -66,15 +34,15 @@ export const PRICING_PLANS: PlanTier[] = [
   {
     id: "yearly",
     name: "Yearly Pro",
-    badge: "Best Value - Save 74%",
-    priceUsd: 88,
+    badge: "Best Value - Save 67%",
+    priceUsd: 188,
     interval: "year",
     intervalLabel: "/ year",
-    billingText: "Billed annually ($7.33/mo equivalent)",
+    billingText: "Billed annually ($15.67/mo equivalent)",
     description: "Maximum savings for committed traders. Lock in institutional gold analytics for a full year.",
     features: [
       "Everything in Monthly Pro",
-      "74% savings compared to standard pricing",
+      "67% savings compared to standard monthly pricing",
       "Full 365 days of continuous Pro access",
       "VIP feature access & future AI model updates",
       "Direct analyst support channel",
@@ -85,7 +53,7 @@ export const PRICING_PLANS: PlanTier[] = [
 export const DEFAULT_PLAN_ID = "monthly";
 
 export function getPlanById(id: string): PlanTier {
-  return PRICING_PLANS.find((p) => p.id === id) || PRICING_PLANS[2];
+  return PRICING_PLANS.find((p) => p.id === id) || PRICING_PLANS[0];
 }
 
 /** Legacy backwards-compatibility alias for existing references */
@@ -93,8 +61,8 @@ export const INITIAL_PLAN = {
   id: "monthly",
   name: "Monthly Pro",
   tagline: "Full access to real-time stop-loss & take-profit concentration pools, quantitative liquidity zones, and rule-based setup telemetry.",
-  priceUsd: 28.0,
+  priceUsd: 48.0,
   billingInterval: "month" as const,
-  features: PRICING_PLANS[2].features,
-  ctaLabel: "SUBSCRIBE NOW — $28/MO",
+  features: PRICING_PLANS[0].features,
+  ctaLabel: "SUBSCRIBE NOW — $48/MO",
 };

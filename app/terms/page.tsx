@@ -39,7 +39,7 @@ export default function TermsPage() {
             3. SUBSCRIPTIONS, BILLING & CANCELLATION
           </h2>
           <p>
-            Subscriptions are billed in advance according to the selected plan interval ($3/day, $10/week, $28/month, or $88/year). You may cancel your subscription at any time prior to the end of your billing cycle. Cancellation takes effect at the expiration of your current prepaid period, during which time access to the platform remains active. Refunds are processed at administrative discretion in accordance with applicable consumer laws.
+            Subscriptions are billed in advance according to the selected plan interval ($48/month or $188/year). You may cancel your subscription at any time prior to the end of your billing cycle. Cancellation takes effect at the expiration of your current prepaid period, during which time access to the platform remains active. Refunds are processed at administrative discretion in accordance with applicable consumer laws.
           </p>
         </section>
 

@@ -15,53 +15,47 @@ export async function POST(req: Request) {
     } catch {}
     const userId = session?.user?.id;
 
-    // If user is logged in, record or activate subscription in Prisma
-    if (userId) {
-      try {
-        const periodDays =
-          plan.interval === "year"
-            ? 365
-            : plan.interval === "week"
-            ? 7
-            : plan.interval === "day"
-            ? 1
-            : 30;
-
-        const currentPeriodEnd = new Date(Date.now() + periodDays * 86400 * 1000);
-
-        await prisma.subscription.upsert({
-          where: { userId },
-          create: {
-            userId,
-            status: "ACTIVE",
-            source: "MANUAL_OVERRIDE",
-            currentPeriodEnd,
-          },
-          update: {
-            status: "ACTIVE",
-            source: "MANUAL_OVERRIDE",
-            currentPeriodEnd,
-          },
-        });
-
-        // Record completed test transaction
-        await prisma.payment.create({
-          data: {
-            userId,
-            provider: paymentMethod === "CRYPTO" ? "CRYPTO_SANDBOX" : "STRIPE_SANDBOX",
-            providerReference: `sandbox_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-            amount: plan.priceUsd,
-            currency: currency.toUpperCase(),
-            status: "COMPLETED",
-            confirmedAt: new Date(),
-          },
-        });
-      } catch (dbError) {
-        console.warn("DB update skipped in sandbox checkout:", dbError);
-      }
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Please sign in or create an account to activate your subscription." },
+        { status: 401 }
+      );
     }
 
-    // Set sandbox_pro cookie so server components immediately recognise Pro status
+    // Record or activate subscription in Prisma
+    const periodDays = plan.interval === "year" ? 365 : 30;
+    const currentPeriodEnd = new Date(Date.now() + periodDays * 86400 * 1000);
+
+    await prisma.subscription.upsert({
+      where: { userId },
+      create: {
+        userId,
+        planId: plan.id,
+        status: "ACTIVE",
+        source: "MANUAL_OVERRIDE",
+        currentPeriodEnd,
+      },
+      update: {
+        planId: plan.id,
+        status: "ACTIVE",
+        source: "MANUAL_OVERRIDE",
+        currentPeriodEnd,
+      },
+    });
+
+    // Record completed test transaction
+    await prisma.payment.create({
+      data: {
+        userId,
+        provider: paymentMethod === "CRYPTO" ? "CRYPTO_SANDBOX" : "STRIPE_SANDBOX",
+        providerReference: `sandbox_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+        amount: plan.priceUsd,
+        currency: currency.toUpperCase(),
+        status: "COMPLETED",
+        confirmedAt: new Date(),
+      },
+    });
+
     const response = NextResponse.json({
       success: true,
       planId: plan.id,
@@ -69,12 +63,9 @@ export async function POST(req: Request) {
       redirectUrl: "/dashboard?payment=success",
     });
 
-    response.cookies.set("sandbox_pro", "true", {
-      path: "/",
-      maxAge: 30 * 86400, // 30 days
-      httpOnly: false, // Accessible to client-side JS as well
-      sameSite: "lax",
-    });
+    // Clear any stale sandbox cookies
+    response.cookies.delete("sandbox_pro");
+    response.cookies.delete("pro_access");
 
     return response;
   } catch (error) {
