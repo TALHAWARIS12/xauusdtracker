@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Subscription Plans & Pricing",
   description:
-    "Choose your XAU/USD gold intelligence access tier. Monthly ($48/mo) and Yearly ($188/yr) plans available with instant Card and Crypto checkout.",
+    "Choose your XAU/USD gold intelligence access tier. Monthly ($48/mo) and Yearly ($188/yr) plans available with instant Crypto checkout via NOWPayments.",
 };
 
 export default async function PricingPage() {
@@ -24,7 +24,7 @@ export default async function PricingPage() {
           Institutional Gold Analytics for Every Trader
         </h1>
         <p className="text-sm text-slate-400 leading-relaxed">
-          Zero-delay tick data, algorithmic stop-loss hunting pools, dynamic Fibonacci expansions, and confluence trade setups. Test mode active.
+          Zero-delay tick data, algorithmic stop-loss hunting pools, dynamic Fibonacci expansions, and confluence trade setups.
         </p>
       </div>
 

@@ -30,7 +30,7 @@ export default async function DashboardPage() {
     session = await auth();
   } catch {}
 
-  // Server-side subscription check (DB + test session cookies)
+  // Server-side database subscription check
   const isSubscribed = await getSubscriptionStatus(session?.user?.id);
 
   return (

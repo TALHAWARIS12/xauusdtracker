@@ -6,6 +6,13 @@ import { ensurePlanExists } from "@/lib/ensure-plans";
 
 export async function POST(req: Request) {
   try {
+    if (process.env.NODE_ENV === "production" || process.env.ALLOW_SANDBOX_CHECKOUT !== "true") {
+      return NextResponse.json(
+        { error: "Sandbox checkout is disabled." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const { planId = "monthly", paymentMethod = "CRYPTO", currency = "USDT" } = body;
 

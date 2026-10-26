@@ -171,7 +171,7 @@ export default async function HomePage() {
             Choose Your Trading Plan
           </h2>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Full sandbox test checkout active. Select any pass interval to test with card or crypto in seconds.
+            Select your preferred subscription tier to unlock full institutional gold analytics and real-time execution signals.
           </p>
         </div>
 
