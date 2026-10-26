@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { SupportWidget } from "@/components/support/SupportWidget";
 import { auth } from "@/auth";
 import { getSubscriptionStatus } from "@/lib/subscription";
 
@@ -44,6 +45,7 @@ export default async function RootLayout({
         <Header session={session} isPro={isPro} />
         <main className="flex flex-1 flex-col">{children}</main>
         <Footer />
+        <SupportWidget />
       </body>
     </html>
   );

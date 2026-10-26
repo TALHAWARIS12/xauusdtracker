@@ -9,7 +9,7 @@ export interface AdminUserItem {
   email: string;
   role: "USER" | "ADMIN";
   subscriptionStatus: "ACTIVE" | "INACTIVE" | "CANCELED";
-  subscriptionSource: "STRIPE" | "MANUAL_OVERRIDE";
+  subscriptionSource: string;
   currentPeriodEnd: string | null;
   createdAt: string;
 }
@@ -218,10 +218,14 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
                         className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase border ${
                           u.subscriptionSource === "MANUAL_OVERRIDE"
                             ? "bg-terminal-gold/15 text-terminal-gold border-terminal-gold/30"
-                            : "bg-terminal-card text-terminal-subtext border-terminal-border"
+                            : "bg-terminal-card text-terminal-gold border-terminal-border"
                         }`}
                       >
-                        {u.subscriptionSource === "MANUAL_OVERRIDE" ? "VIP OVERRIDE" : "STRIPE"}
+                        {u.subscriptionSource === "MANUAL_OVERRIDE"
+                          ? "VIP OVERRIDE"
+                          : u.subscriptionSource === "NOWPAYMENTS" || u.subscriptionSource === "STRIPE"
+                          ? "NOWPAYMENTS"
+                          : u.subscriptionSource}
                       </span>
                     </td>
 

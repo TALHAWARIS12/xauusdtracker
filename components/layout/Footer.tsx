@@ -37,6 +37,32 @@ export function Footer() {
         </div>
       </div>
 
+      <div className="border-t border-white/[0.06] bg-ink-950/80">
+        <div className="container-app flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between text-xs">
+          <div className="flex items-center gap-2 text-slate-400">
+            <span className="font-semibold text-gold-300">Got complaints or inquiries?</span>
+            <span>Support Desk:</span>
+            <a
+              href="https://mail.google.com/mail/?view=cm&fs=1&to=Support@xauusdtracker.com&su=Support%20%26%20Complaints%20-%20XAUUSD%20Tracker"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-white underline hover:text-gold-300 transition"
+              title="Open Gmail to email Support@xauusdtracker.com"
+            >
+              Support@xauusdtracker.com
+            </a>
+          </div>
+          <a
+            href="https://mail.google.com/mail/?view=cm&fs=1&to=Support@xauusdtracker.com&su=Support%20%26%20Complaints%20-%20XAUUSD%20Tracker"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gold-400/30 bg-gold-400/10 px-3 py-1 text-gold-300 hover:bg-gold-400/20 hover:text-white transition w-fit"
+          >
+            Send Complaint via Gmail →
+          </a>
+        </div>
+      </div>
+
       <div className="border-t border-white/[0.04]">
         <div className="container-app flex flex-col gap-3 py-6 text-xs text-slate-500 md:flex-row md:items-start md:justify-between">
           <p>© {new Date().getUTCFullYear()} XAUUSD Tracker. All rights reserved.</p>

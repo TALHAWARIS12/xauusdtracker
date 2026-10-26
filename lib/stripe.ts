@@ -1,6 +1,5 @@
-import Stripe from "stripe";
-
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20" as any,
-  typescript: true,
-});
+/**
+ * Stripe integration is deprecated. All payments are processed exclusively
+ * through NOWPayments cryptocurrency gateway.
+ */
+export const stripe = null as any;

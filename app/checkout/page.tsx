@@ -4,8 +4,8 @@ import { CheckoutClient } from "@/components/checkout/CheckoutClient";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sandbox Checkout | Cards & Crypto",
-  description: "Test checkout mode for XAUUSD Tracker. Test card payments with Stripe test numbers or simulate cryptocurrency payments.",
+  title: "Crypto Checkout | NOWPayments",
+  description: "Subscribe to XAUUSD Tracker using Cryptocurrency powered by NOWPayments gateway.",
 };
 
 interface CheckoutPageProps {

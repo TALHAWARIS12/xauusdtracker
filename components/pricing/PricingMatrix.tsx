@@ -166,7 +166,7 @@ export function PricingMatrix({ isSubscribed = false, activePlanId = null }: Pri
           <div>
             <h4 className="text-sm font-semibold text-white">100% Risk-Free Guarantee</h4>
             <p className="text-xs text-slate-400">
-              Cancel anytime with a single click. Test mode active — test card and crypto payments with 0 gas or real charges.
+              Instant activation upon blockchain confirmation. Pay securely via NOWPayments with USDT, BTC, ETH, and 200+ coins.
             </p>
           </div>
         </div>
@@ -178,7 +178,7 @@ export function PricingMatrix({ isSubscribed = false, activePlanId = null }: Pri
           </span>
           <span className="flex items-center gap-1.5">
             <Check className="h-4 w-4 text-bull-300" />
-            Stripe & Crypto
+            Crypto (NOWPayments)
           </span>
           <span className="flex items-center gap-1.5">
             <Check className="h-4 w-4 text-bull-300" />
@@ -196,9 +196,9 @@ export function PricingMatrix({ isSubscribed = false, activePlanId = null }: Pri
 
         <div className="grid gap-3 text-xs">
           <div className="card-muted p-4 space-y-1.5">
-            <h3 className="font-semibold text-white text-sm">How does the Sandbox testing checkout work?</h3>
+            <h3 className="font-semibold text-white text-sm">How does the Cryptocurrency checkout work?</h3>
             <p className="text-slate-400 leading-relaxed">
-              You can test the checkout flow immediately using either standard Stripe test card numbers (e.g. 4242 4242 4242 4242) or cryptocurrency simulation (USDT, BTC, ETH) with a single click. No real money or testnet tokens are required.
+              Payments are handled through our NOWPayments cryptocurrency gateway. You can pay with USDT (TRC20/ERC20), Bitcoin, Ethereum, Solana, and over 200 other digital assets. Once the blockchain transaction confirms, your Pro clearance activates immediately.
             </p>
           </div>
 

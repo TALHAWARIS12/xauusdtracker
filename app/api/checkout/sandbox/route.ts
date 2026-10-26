@@ -7,7 +7,7 @@ import { ensurePlanExists } from "@/lib/ensure-plans";
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { planId = "monthly", paymentMethod = "CARD", currency = "USD" } = body;
+    const { planId = "monthly", paymentMethod = "CRYPTO", currency = "USDT" } = body;
 
     const plan = getPlanById(planId);
     let session = null;
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     await prisma.payment.create({
       data: {
         userId,
-        provider: paymentMethod === "CRYPTO" ? "CRYPTO_SANDBOX" : "STRIPE_SANDBOX",
+        provider: "CRYPTO_SANDBOX",
         providerReference: `sandbox_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
         amount: plan.priceUsd,
         currency: currency.toUpperCase(),

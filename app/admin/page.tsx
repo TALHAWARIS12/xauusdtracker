@@ -39,10 +39,10 @@ export default async function AdminPage() {
   const manualVips = await prisma.subscription.count({
     where: { status: "ACTIVE", source: "MANUAL_OVERRIDE" },
   });
-  const stripeSubs = activeSubs - manualVips;
+  const cryptoSubs = activeSubs - manualVips;
 
   const MONTHLY_PLAN_PRICE = 48; // Standard monthly tier ($48/mo)
-  const estimatedMrr = stripeSubs * MONTHLY_PLAN_PRICE;
+  const estimatedMrr = cryptoSubs * MONTHLY_PLAN_PRICE;
 
   // Retrieve user directory with subscriptions
   const dbUsers = await prisma.user.findMany({
@@ -55,7 +55,7 @@ export default async function AdminPage() {
     email: u.email,
     role: u.role,
     subscriptionStatus: u.subscription?.status ?? "INACTIVE",
-    subscriptionSource: u.subscription?.source ?? "STRIPE",
+    subscriptionSource: u.subscription?.source ?? "NOWPAYMENTS",
     currentPeriodEnd: u.subscription?.currentPeriodEnd
       ? u.subscription.currentPeriodEnd.toISOString()
       : null,
@@ -158,7 +158,7 @@ export default async function AdminPage() {
             {activeSubs.toLocaleString()}
           </div>
           <div className="text-[10px] text-terminal-green/90">
-            {stripeSubs} Stripe Paid · {manualVips} Manual VIP
+            {cryptoSubs} Crypto Paid · {manualVips} Manual VIP
           </div>
         </div>
 

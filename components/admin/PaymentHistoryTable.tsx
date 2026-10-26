@@ -28,7 +28,7 @@ export function PaymentHistoryTable({ payments }: PaymentHistoryTableProps) {
           </span>
         </div>
         <span className="text-[10px] text-terminal-subtext uppercase tracking-widest hidden sm:inline">
-          Server-Side Stripe Webhook Logs
+          NOWPayments Blockchain Logs
         </span>
       </div>
 

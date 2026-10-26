@@ -27,7 +27,7 @@ export default function PrivacyPage() {
           <ul className="list-disc list-inside space-y-1 text-terminal-subtext">
             <li>Account identifier: Email address provided upon registration.</li>
             <li>Security passkey: Irreversible bcrypt-hashed password (salt rounds 10). Plaintext passwords are never logged or stored.</li>
-            <li>Subscription metadata: Stripe customer and subscription identifiers, start and expiry dates, and payment status.</li>
+            <li>Subscription metadata: NOWPayments invoice and transaction identifiers, start and expiry dates, and blockchain confirmation status.</li>
           </ul>
         </section>
 
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
             2. PAYMENT DATA SECURITY
           </h2>
           <p>
-            All payment transactions are handled exclusively by Stripe over 256-Bit SSL encryption. We never receive, store, or process raw credit card numbers, CVVs, or cardholder banking credentials on our infrastructure.
+            All payment transactions are handled exclusively through our cryptocurrency payment gateway, NOWPayments. We never receive, store, or process private wallet keys or seed phrases on our infrastructure. All transactions occur on decentralized blockchains.
           </p>
         </section>
 
@@ -49,9 +49,9 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-white font-bold text-sm">4. DATA RETENTION & DELETION</h2>
+          <h2 className="text-white font-bold text-sm">4. DATA RETENTION, COMPLAINTS & SUPPORT</h2>
           <p>
-            Account records are retained for the duration of your active subscription. You may request account deletion and removal of associated transaction records by contacting administrative support.
+            Account records are retained for the duration of your active subscription. You may submit complaints, questions, or request account deletion and removal of associated transaction records by contacting our support desk at <a href="https://mail.google.com/mail/?view=cm&fs=1&to=Support@xauusdtracker.com&su=Support%20%26%20Complaints" target="_blank" rel="noopener noreferrer" className="text-terminal-gold underline font-mono">Support@xauusdtracker.com</a>.
           </p>
         </section>
 
