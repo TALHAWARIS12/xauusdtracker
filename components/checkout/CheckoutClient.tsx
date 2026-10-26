@@ -166,8 +166,8 @@ export function CheckoutClient({
         document.cookie = "pro_access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       }
 
-      // Instant redirect to /dashboard?payment=success
-      router.push("/dashboard?payment=success");
+      // Hard redirect to /dashboard?payment=success to guarantee server components re-evaluate fresh subscription state
+      window.location.href = "/dashboard?payment=success";
     } catch (err: any) {
       console.error("Payment error:", err);
       alert(err?.message || "Payment simulation failed. Please ensure you are logged in.");
@@ -292,6 +292,18 @@ export function CheckoutClient({
                     Use card number <strong>4242 • 4242 • 4242 • 4242</strong> | Exp: <strong>12/28</strong> | CVC: <strong>123</strong>
                   </p>
                 </div>
+
+                {!userEmail && (
+                  <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200 flex items-center justify-between">
+                    <span>You are not signed in. Sign in to link access to your account.</span>
+                    <Link
+                      href={`/login?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan.id}`)}`}
+                      className="font-bold underline text-amber-300 hover:text-white shrink-0 ml-2"
+                    >
+                      Sign In →
+                    </Link>
+                  </div>
+                )}
 
                 {/* Form fields */}
                 <div className="space-y-3 text-xs">

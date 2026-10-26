@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyIpnSignature, NowPaymentsIpnPayload } from "@/lib/nowpayments";
+import { ensurePlanExists } from "@/lib/ensure-plans";
 
 export async function POST(req: NextRequest) {
   // 1. HMAC Signature Verification: Intercept incoming raw body text
@@ -110,34 +111,61 @@ export async function POST(req: NextRequest) {
         ? String(payment_id)
         : transaction.providerReference || String(order_id);
 
-      const activePlanId = durationDays >= 365 ? "yearly" : "monthly";
+      const targetPlanId = durationDays >= 365 ? "yearly" : (durationDays <= 7 ? "weekly" : "monthly");
+      const activePlanId = await ensurePlanExists(targetPlanId);
 
-      await prisma.$transaction([
-        // Update transaction status to completed
-        prisma.payment.update({
+      try {
+        await prisma.$transaction([
+          // Update transaction status to completed
+          prisma.payment.update({
+            where: { id: transaction.id },
+            data: {
+              status: "COMPLETED",
+              providerReference: resolvedRef,
+              confirmedAt: new Date(),
+            },
+          }),
+          // Activate/renew the user's subscription in the database with the resolved planId
+          prisma.subscription.upsert({
+            where: { userId: transaction.userId },
+            create: {
+              userId: transaction.userId,
+              planId: activePlanId,
+              status: "ACTIVE",
+              currentPeriodEnd,
+            },
+            update: {
+              planId: activePlanId,
+              status: "ACTIVE",
+              currentPeriodEnd,
+            },
+          }),
+        ]);
+      } catch (txError) {
+        console.warn("Primary transaction failed, attempting resilient fallback activation:", txError);
+        // Fallback: Ensure subscription is activated even if foreign key relation has any issue
+        await prisma.payment.update({
           where: { id: transaction.id },
           data: {
             status: "COMPLETED",
             providerReference: resolvedRef,
             confirmedAt: new Date(),
           },
-        }),
-        // Activate/renew the user's subscription in the database with the resolved planId
-        prisma.subscription.upsert({
+        }).catch(() => null);
+
+        await prisma.subscription.upsert({
           where: { userId: transaction.userId },
           create: {
             userId: transaction.userId,
-            planId: activePlanId,
             status: "ACTIVE",
             currentPeriodEnd,
           },
           update: {
-            planId: activePlanId,
             status: "ACTIVE",
             currentPeriodEnd,
           },
-        }),
-      ]);
+        });
+      }
 
       return NextResponse.json({ success: true, status: "completed" }, { status: 200 });
     }

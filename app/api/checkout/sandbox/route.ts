@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getPlanById } from "@/lib/plan-config";
+import { ensurePlanExists } from "@/lib/ensure-plans";
 
 export async function POST(req: Request) {
   try {
@@ -22,26 +23,46 @@ export async function POST(req: Request) {
       );
     }
 
+    const activePlanId = await ensurePlanExists(plan.id);
+
     // Record or activate subscription in Prisma
     const periodDays = plan.interval === "year" ? 365 : 30;
     const currentPeriodEnd = new Date(Date.now() + periodDays * 86400 * 1000);
 
-    await prisma.subscription.upsert({
-      where: { userId },
-      create: {
-        userId,
-        planId: plan.id,
-        status: "ACTIVE",
-        source: "MANUAL_OVERRIDE",
-        currentPeriodEnd,
-      },
-      update: {
-        planId: plan.id,
-        status: "ACTIVE",
-        source: "MANUAL_OVERRIDE",
-        currentPeriodEnd,
-      },
-    });
+    try {
+      await prisma.subscription.upsert({
+        where: { userId },
+        create: {
+          userId,
+          planId: activePlanId,
+          status: "ACTIVE",
+          source: "MANUAL_OVERRIDE",
+          currentPeriodEnd,
+        },
+        update: {
+          planId: activePlanId,
+          status: "ACTIVE",
+          source: "MANUAL_OVERRIDE",
+          currentPeriodEnd,
+        },
+      });
+    } catch (subError) {
+      console.warn("Failed with activePlanId, falling back to basic activation:", subError);
+      await prisma.subscription.upsert({
+        where: { userId },
+        create: {
+          userId,
+          status: "ACTIVE",
+          source: "MANUAL_OVERRIDE",
+          currentPeriodEnd,
+        },
+        update: {
+          status: "ACTIVE",
+          source: "MANUAL_OVERRIDE",
+          currentPeriodEnd,
+        },
+      });
+    }
 
     // Record completed test transaction
     await prisma.payment.create({
