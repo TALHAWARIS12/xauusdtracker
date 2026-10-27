@@ -57,12 +57,15 @@ export function DashboardClient({ initialSubscribed, userEmail }: DashboardClien
     }
 
     if (paymentParam === "success") {
-      setShowSuccessModal(true);
+      // STRICT GATE: Never show Payment Confirmed modal unless user holds active database subscription
+      if (isSubscribed) {
+        setShowSuccessModal(true);
+      }
       if (typeof window !== "undefined") {
         window.history.replaceState({}, "", "/dashboard");
       }
     }
-  }, [paymentParam]);
+  }, [paymentParam, isSubscribed]);
 
   // Active candles for selected timeframe (150 candles loaded directly per timeframe)
   const activeCandles = market.candles;

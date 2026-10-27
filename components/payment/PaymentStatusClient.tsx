@@ -49,9 +49,8 @@ export function PaymentStatusClient({
     if (!orderId) {
       if (urlStatus === "cancelled") {
         setDisplayState("FAILED");
-      } else if (urlStatus === "success") {
-        setDisplayState("SUCCESS");
       } else {
+        // Without an order reference, NEVER claim success - keep as pending verification
         setDisplayState("PENDING");
       }
       return;
@@ -64,7 +63,7 @@ export function PaymentStatusClient({
           setDisplayState("FAILED");
           return;
         }
-        // If not found yet but recently created, treat as pending
+        // If not found yet but recently created, treat as pending verification
         setDisplayState("PENDING");
         return;
       }
@@ -72,11 +71,13 @@ export function PaymentStatusClient({
       const data = await res.json();
       setDetails(data);
 
-      if (data.status === "COMPLETED" || data.isSubscribed) {
+      // STRICT GATE: Only show SUCCESS if database explicitly confirms transaction is COMPLETED
+      if (data.status === "COMPLETED") {
         setDisplayState("SUCCESS");
       } else if (data.status === "FAILED" || data.status === "REFUNDED" || urlStatus === "cancelled") {
         setDisplayState("FAILED");
       } else {
+        // Any intermediate status (waiting, confirming, sending, pending) remains in PENDING state
         setDisplayState("PENDING");
       }
     } catch (err) {
