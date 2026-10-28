@@ -166,5 +166,56 @@ export async function loginUser(
   redirect("/dashboard");
 }
 
+export type ChangePasswordState = {
+  success?: boolean;
+  error?: string;
+};
 
+export async function changePassword(
+  _prevState: ChangePasswordState | null,
+  formData: FormData
+): Promise<ChangePasswordState> {
+  const { auth } = await import("@/auth");
+  const session = await auth();
 
+  if (!session?.user?.id) {
+    return { error: "You must be signed in to change your password." };
+  }
+
+  const currentPassword = formData.get("currentPassword") as string;
+  const newPassword = formData.get("newPassword") as string;
+  const confirmNewPassword = formData.get("confirmNewPassword") as string;
+
+  if (!currentPassword || !newPassword || !confirmNewPassword) {
+    return { error: "All password fields are required." };
+  }
+
+  if (newPassword.length < 8) {
+    return { error: "New password must be at least 8 characters long." };
+  }
+
+  if (newPassword !== confirmNewPassword) {
+    return { error: "New passwords do not match." };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+  });
+
+  if (!user || !user.passwordHash) {
+    return { error: "User record not found." };
+  }
+
+  const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isValid) {
+    return { error: "Current password does not match our records." };
+  }
+
+  const newHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { passwordHash: newHash },
+  });
+
+  return { success: true };
+}

@@ -101,6 +101,14 @@ export default function LoginPage() {
                   className="w-full bg-terminal-surface border border-terminal-border focus:border-terminal-gold focus:ring-1 focus:ring-terminal-gold rounded py-2.5 pl-10 pr-3 text-xs text-white placeholder-terminal-subtext/40 transition outline-none font-mono"
                 />
               </div>
+              <div className="flex justify-end mt-1.5">
+                <Link
+                  href="/forgot-password"
+                  className="text-[11px] text-terminal-gold hover:underline font-bold"
+                >
+                  FORGOT SECURITY PASSKEY?
+                </Link>
+              </div>
             </div>
 
             <button

@@ -13,31 +13,56 @@ async function removeUnauthorizedAccess() {
     throw new Error("Admin user not found for audit logging.");
   }
 
-  // Target list of users who gained Pro access via Stripe sandbox, manual override, or test mode without valid verified NOWPayments payments
+  // Explicit whitelist of protected accounts that MUST NEVER be deactivated
+  const protectedEmails = [
+    'support@xauusdtracker.com',
+    'admin@xauusdtracker.com',
+    'josuuf.mo@gmail.com',
+    'sedaka226@gmail.com',
+    'test12@gmail.com',
+    'qa-terminal@xauusdtracker.com',
+    'debug@gmail.com',
+    'java@gmail.com',
+    'andytr210@gmail.com',
+    'georgenjeru15@gmail.com',
+    'djneilsam@hotmail.com',
+    'emmaasante751@gmail.com'
+  ];
+
+  // Target list of developer sandbox / test accounts that have NO valid payments
   const targetEmails = [
     'tomkaranja57@gmail.com',
     'talha@gmail.com',
     'bambimim28@gmail.com',
     'ahmad@gmail.com',
-    'qa-terminal@xauusdtracker.com',
-    'test12@gmail.com',
-    'java@gmail.com',
-    'debug@gmail.com',
-    'support@xauusdtracker.com',
-    'josuuf.mo@gmail.com',
-    'sedaka226@gmail.com',
   ];
 
-  console.log(`Auditing and deactivating ${targetEmails.length} legacy/test accounts...\n`);
+  console.log(`Auditing and deactivating sandbox accounts...\n`);
 
   for (const email of targetEmails) {
+    if (protectedEmails.includes(email.toLowerCase())) {
+      console.log(`[PROTECTED] User ${email} is protected, skipping.`);
+      continue;
+    }
+
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { subscription: true },
+      include: {
+        subscription: true,
+        payments: {
+          where: { status: 'COMPLETED', provider: 'NOWPAYMENTS' }
+        }
+      },
     });
 
     if (!user) {
       console.log(`User ${email} not found in database, skipping.`);
+      continue;
+    }
+
+    // Safety guard: if user has any completed NOWPayments transactions, NEVER deactivate!
+    if (user.payments.length > 0) {
+      console.log(`[SAFETY ABORT] User ${email} holds verified NOWPayments transactions. Skipping deactivation.`);
       continue;
     }
 
@@ -57,7 +82,7 @@ async function removeUnauthorizedAccess() {
             adminUserId: admin.id,
             targetUserId: user.id,
             action: 'DEACTIVATE_UNAUTHORIZED_ACCESS',
-            reason: 'Removed legacy Stripe sandbox / developer test access without valid NOWPayments payment as requested by client.',
+            reason: 'Removed legacy Stripe sandbox test access without valid NOWPayments payment.',
           },
         }),
       ]);

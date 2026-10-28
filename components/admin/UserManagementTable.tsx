@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
-import { grantManualVip, revokeVip } from "@/actions/admin-actions";
-import { CheckCircle2, XCircle, ShieldCheck, UserX, Loader2, Calendar, Search, Filter } from "lucide-react";
+import { grantManualVip, revokeVip, adminResetPassword } from "@/actions/admin-actions";
+import { CheckCircle2, XCircle, ShieldCheck, UserX, Loader2, Calendar, Search, Filter, Key, Copy } from "lucide-react";
 
 export interface AdminUserItem {
   id: string;
@@ -84,6 +84,33 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
     });
   };
 
+  const handleResetPassword = (userId: string, email: string) => {
+    const customPass = reasonInput[userId];
+    setActiveActionId(`reset-${userId}`);
+    setMessage(null);
+
+    startTransition(async () => {
+      try {
+        const res = await adminResetPassword(userId, customPass);
+        if (typeof navigator !== "undefined" && navigator.clipboard) {
+          navigator.clipboard.writeText(res.newPassword);
+        }
+        setMessage({
+          text: `Passkey for ${email} reset to: "${res.newPassword}" (Copied to clipboard). Provide this to the operator.`,
+          type: "success",
+        });
+      } catch (err) {
+        setMessage({
+          text: err instanceof Error ? err.message : "Failed to reset passkey",
+          type: "error",
+        });
+      } finally {
+        setActiveActionId(null);
+      }
+    });
+  };
+
+
   return (
     <div className="space-y-4">
       {/* Search & Filter Controls */}
@@ -162,6 +189,7 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
                 const isActive = u.subscriptionStatus === "ACTIVE";
                 const isGranting = activeActionId === `grant-${u.id}`;
                 const isRevoking = activeActionId === `revoke-${u.id}`;
+                const isResetting = activeActionId === `reset-${u.id}`;
 
                 return (
                   <tr key={u.id} className="hover:bg-terminal-card/50 transition-colors">
@@ -276,6 +304,21 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
                             <ShieldCheck className="w-3 h-3" />
                           )}
                           <span>{isActive ? "+30D" : "VIP"}</span>
+                        </button>
+
+                        {/* Reset Passkey Button */}
+                        <button
+                          onClick={() => handleResetPassword(u.id, u.email)}
+                          disabled={isPending}
+                          className="px-2 py-1 rounded text-[10px] font-bold tracking-wider uppercase bg-terminal-card hover:bg-terminal-gold/20 text-terminal-gold border border-terminal-border hover:border-terminal-gold/40 transition flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Reset operator passkey (generates secure temporary password or uses custom text above)"
+                        >
+                          {isResetting ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Key className="w-3 h-3" />
+                          )}
+                          <span>RESET PASS</span>
                         </button>
 
                         {/* Revoke VIP Button */}

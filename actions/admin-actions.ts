@@ -106,3 +106,62 @@ export async function revokeVip(userId: string, reason?: string) {
 
   return { success: true };
 }
+
+/**
+ * Resets an operator's passkey/password directly from the administrative portal.
+ * Allows setting a specific new password or generates a secure temporary passkey.
+ * Only callable by users with ADMIN role.
+ */
+export async function adminResetPassword(userId: string, customPassword?: string) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN" || !session?.user?.id) {
+    throw new Error("Unauthorized: Root administrative privileges required.");
+  }
+
+  if (!userId) {
+    throw new Error("Target userId is required.");
+  }
+
+  const bcrypt = await import("bcryptjs");
+  const crypto = await import("crypto");
+
+  const newPassword =
+    customPassword && customPassword.trim().length >= 8
+      ? customPassword.trim()
+      : `GoldPass-${crypto.randomBytes(3).toString("hex").toUpperCase()}!`;
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+
+  if (!targetUser) {
+    throw new Error("Target operator not found.");
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    }),
+    prisma.adminAuditEvent.create({
+      data: {
+        adminUserId: session.user.id,
+        targetUserId: userId,
+        action: "ADMIN_RESET_PASSWORD",
+        reason: `Passkey reset by administrator for operator ${targetUser.email}`,
+      },
+    }),
+  ]);
+
+  revalidatePath("/admin");
+
+  return {
+    success: true,
+    newPassword,
+    email: targetUser.email,
+  };
+}
+

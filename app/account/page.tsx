@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { User, Shield, CreditCard, LayoutDashboard, Zap, CheckCircle2, XCircle } from "lucide-react";
 import { getSubscriptionStatus } from "@/lib/subscription";
+import { ChangePasswordForm } from "@/components/account/ChangePasswordForm";
 
 export default async function AccountPage() {
   const session = await auth();
@@ -174,6 +175,9 @@ export default async function AccountPage() {
           </div>
         </div>
       </div>
+
+      {/* Security & Passkey Management */}
+      <ChangePasswordForm />
 
       {/* Payment History */}
       {user.payments && user.payments.length > 0 && (
