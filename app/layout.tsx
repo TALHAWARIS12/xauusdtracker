@@ -3,6 +3,7 @@ import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { SupportWidget } from "@/components/support/SupportWidget";
+import { VisitorTracker } from "@/components/analytics/VisitorTracker";
 import { auth } from "@/auth";
 import { getSubscriptionStatus } from "@/lib/subscription";
 
@@ -46,6 +47,7 @@ export default async function RootLayout({
         <main className="flex flex-1 flex-col">{children}</main>
         <Footer />
         <SupportWidget />
+        <VisitorTracker />
       </body>
     </html>
   );

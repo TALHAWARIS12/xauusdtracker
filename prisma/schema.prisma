@@ -120,3 +120,16 @@ model AdminAuditEvent {
   reason       String
   createdAt    DateTime @default(now())
 }
+
+model SiteVisit {
+  id        String   @id @default(cuid())
+  path      String   @default("/")
+  ipHash    String?
+  userAgent String?
+  referrer  String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path])
+}
+

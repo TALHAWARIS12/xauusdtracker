@@ -8,6 +8,11 @@ import {
   Activity,
   CheckCircle2,
   Key,
+  Eye,
+  Globe,
+  TrendingUp,
+  UserPlus,
+  Compass,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -31,8 +36,50 @@ export default async function AdminPage() {
     redirect("/dashboard");
   }
 
-  // System KPIs queries
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  // 1. Account Creation Analytics
   const totalUsers = await prisma.user.count();
+  const usersToday = await prisma.user.count({
+    where: { createdAt: { gte: oneDayAgo } },
+  });
+  const usersThisWeek = await prisma.user.count({
+    where: { createdAt: { gte: sevenDaysAgo } },
+  });
+
+  // 2. Site Visitor & Traffic Analytics
+  const totalVisits = await prisma.siteVisit.count();
+  const visitsToday = await prisma.siteVisit.count({
+    where: { createdAt: { gte: oneDayAgo } },
+  });
+
+  const uniqueVisitorsTotalResult = await prisma.siteVisit.groupBy({
+    by: ["ipHash"],
+    _count: { id: true },
+  });
+  const uniqueVisitorsTotal = uniqueVisitorsTotalResult.length;
+
+  const uniqueVisitorsTodayResult = await prisma.siteVisit.groupBy({
+    by: ["ipHash"],
+    where: { createdAt: { gte: oneDayAgo } },
+    _count: { id: true },
+  });
+  const uniqueVisitorsToday = uniqueVisitorsTodayResult.length;
+
+  const topPagesResult = await prisma.siteVisit.groupBy({
+    by: ["path"],
+    _count: { id: true },
+    orderBy: { _count: { id: "desc" } },
+    take: 5,
+  });
+
+  const recentVisits = await prisma.siteVisit.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 8,
+  });
+
+  // 3. Clearances & MRR
   const activeSubs = await prisma.subscription.count({
     where: { status: "ACTIVE" },
   });
@@ -43,6 +90,7 @@ export default async function AdminPage() {
 
   const MONTHLY_PLAN_PRICE = 48; // Standard monthly tier ($48/mo)
   const estimatedMrr = cryptoSubs * MONTHLY_PLAN_PRICE;
+
 
   // Retrieve user directory with subscriptions
   const dbUsers = await prisma.user.findMany({
@@ -133,69 +181,211 @@ export default async function AdminPage() {
       </div>
 
       {/* System KPIs Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
         {/* KPI 1: Total Registered Users */}
-        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-4 space-y-2">
-          <div className="flex items-center justify-between text-terminal-subtext text-[11px] tracking-wider uppercase">
-            <span>Total Registered Users</span>
-            <Users className="w-4 h-4 text-terminal-gold" />
+        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-3.5 space-y-1.5">
+          <div className="flex items-center justify-between text-terminal-subtext text-[10px] tracking-wider uppercase">
+            <span>Accounts Created</span>
+            <Users className="w-3.5 h-3.5 text-terminal-gold" />
           </div>
-          <div className="text-3xl font-extrabold text-white tabular-nums">
+          <div className="text-2xl font-extrabold text-white tabular-nums">
             {totalUsers.toLocaleString()}
           </div>
-          <div className="text-[10px] text-terminal-subtext">
-            PostgreSQL Database · Synced
+          <div className="text-[10px] text-terminal-green flex items-center gap-1 font-bold">
+            <UserPlus className="w-3 h-3" />
+            <span>+{usersToday} Today · +{usersThisWeek} 7d</span>
           </div>
         </div>
 
-        {/* KPI 2: Active Clearances */}
-        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-4 space-y-2">
-          <div className="flex items-center justify-between text-terminal-subtext text-[11px] tracking-wider uppercase">
-            <span>Active Clearances</span>
-            <CheckCircle2 className="w-4 h-4 text-terminal-green" />
+        {/* KPI 2: Total Site Visits (Pageviews) */}
+        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-3.5 space-y-1.5">
+          <div className="flex items-center justify-between text-terminal-subtext text-[10px] tracking-wider uppercase">
+            <span>Total Site Visits</span>
+            <Eye className="w-3.5 h-3.5 text-terminal-gold" />
           </div>
-          <div className="text-3xl font-extrabold text-terminal-green tabular-nums">
+          <div className="text-2xl font-extrabold text-white tabular-nums">
+            {totalVisits.toLocaleString()}
+          </div>
+          <div className="text-[10px] text-terminal-gold font-bold">
+            +{visitsToday} views in last 24h
+          </div>
+        </div>
+
+        {/* KPI 3: Unique Visitors */}
+        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-3.5 space-y-1.5">
+          <div className="flex items-center justify-between text-terminal-subtext text-[10px] tracking-wider uppercase">
+            <span>Unique Visitors</span>
+            <Globe className="w-3.5 h-3.5 text-terminal-gold" />
+          </div>
+          <div className="text-2xl font-extrabold text-white tabular-nums">
+            {uniqueVisitorsTotal.toLocaleString()}
+          </div>
+          <div className="text-[10px] text-terminal-subtext">
+            {uniqueVisitorsToday} active today
+          </div>
+        </div>
+
+        {/* KPI 4: Active Clearances */}
+        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-3.5 space-y-1.5">
+          <div className="flex items-center justify-between text-terminal-subtext text-[10px] tracking-wider uppercase">
+            <span>Active Clearances</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-terminal-green" />
+          </div>
+          <div className="text-2xl font-extrabold text-terminal-green tabular-nums">
             {activeSubs.toLocaleString()}
           </div>
           <div className="text-[10px] text-terminal-green/90">
-            {cryptoSubs} Crypto Paid · {manualVips} Manual VIP
+            {cryptoSubs} Paid · {manualVips} VIP
           </div>
         </div>
 
-        {/* KPI 3: Estimated Monthly MRR */}
-        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-4 space-y-2">
-          <div className="flex items-center justify-between text-terminal-subtext text-[11px] tracking-wider uppercase">
+        {/* KPI 5: Estimated Monthly MRR */}
+        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-3.5 space-y-1.5">
+          <div className="flex items-center justify-between text-terminal-subtext text-[10px] tracking-wider uppercase">
             <span>Estimated MRR</span>
-            <DollarSign className="w-4 h-4 text-terminal-gold" />
+            <DollarSign className="w-3.5 h-3.5 text-terminal-gold" />
           </div>
-          <div className="text-3xl font-extrabold text-terminal-gold tabular-nums">
+          <div className="text-2xl font-extrabold text-terminal-gold tabular-nums">
             ${estimatedMrr.toLocaleString()}
           </div>
           <div className="text-[10px] text-terminal-subtext">
-            Based on ${MONTHLY_PLAN_PRICE}/mo plan rate
+            ${MONTHLY_PLAN_PRICE}/mo plan rate
           </div>
         </div>
 
-        {/* KPI 4: Data Feed Health */}
-        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-4 space-y-2">
-          <div className="flex items-center justify-between text-terminal-subtext text-[11px] tracking-wider uppercase">
-            <span>Data Feed Health</span>
-            <Activity className="w-4 h-4 text-terminal-green animate-pulse" />
+        {/* KPI 6: Data Feed Health */}
+        <div className="bg-terminal-surface border border-terminal-border rounded-lg p-3.5 space-y-1.5">
+          <div className="flex items-center justify-between text-terminal-subtext text-[10px] tracking-wider uppercase">
+            <span>PAXG Live Feed</span>
+            <Activity className="w-3.5 h-3.5 text-terminal-green animate-pulse" />
           </div>
-          <div className="flex items-center gap-2 pt-1">
-            <span className="relative flex h-3 w-3">
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-terminal-green opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-terminal-green shadow-[0_0_10px_#00E676]"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-terminal-green shadow-[0_0_8px_#00E676]"></span>
             </span>
             <span className="text-lg font-extrabold text-terminal-green tracking-wide">
               NOMINAL
             </span>
           </div>
           <div className="text-[10px] text-terminal-subtext">
-            PAXG WebSocket 1:1 Live Engine
+            WebSocket 1:1 Live
           </div>
         </div>
       </div>
+
+      {/* Website Traffic & Visitor Telemetry Panel */}
+      <div className="bg-terminal-surface border border-terminal-border rounded-lg overflow-hidden shadow-xl">
+        <div className="bg-terminal-card px-5 py-3.5 border-b border-terminal-border flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Globe className="w-4 h-4 text-terminal-gold" />
+            <span className="font-extrabold text-white tracking-wider text-xs uppercase">
+              WEBSITE VISITOR & TRAFFIC TELEMETRY
+            </span>
+          </div>
+          <div className="flex items-center gap-4 text-[10px] text-terminal-subtext">
+            <span>
+              Conversion Rate:{" "}
+              <strong className="text-terminal-gold">
+                {uniqueVisitorsTotal > 0
+                  ? ((totalUsers / uniqueVisitorsTotal) * 100).toFixed(1)
+                  : 0}
+                %
+              </strong>
+            </span>
+            <span className="hidden sm:inline">
+              Real-Time Neon DB Stream
+            </span>
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Top Visited Routes */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-[11px] font-bold text-gray-300 uppercase tracking-wider border-b border-terminal-border pb-2">
+              <span className="flex items-center gap-1.5">
+                <Compass className="w-3.5 h-3.5 text-terminal-gold" /> Top Visited Routes
+              </span>
+              <span>Hits</span>
+            </div>
+            <div className="space-y-2">
+              {topPagesResult.length === 0 ? (
+                <p className="text-[11px] text-terminal-subtext py-3 text-center">
+                  Awaiting visitor traffic telemetry...
+                </p>
+              ) : (
+                topPagesResult.map((p) => {
+                  const percentage =
+                    totalVisits > 0
+                      ? Math.round((p._count.id / totalVisits) * 100)
+                      : 0;
+                  return (
+                    <div key={p.path} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-200 font-bold">{p.path}</span>
+                        <span className="text-terminal-gold font-bold">
+                          {p._count.id}{" "}
+                          <span className="text-[10px] text-terminal-subtext">
+                            ({percentage}%)
+                          </span>
+                        </span>
+                      </div>
+                      <div className="w-full bg-terminal-black rounded-full h-1.5 overflow-hidden border border-terminal-border">
+                        <div
+                          className="bg-gradient-to-r from-terminal-gold to-amber-300 h-1.5 rounded-full"
+                          style={{ width: `${Math.max(percentage, 4)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Recent Visitor Activity Stream */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-[11px] font-bold text-gray-300 uppercase tracking-wider border-b border-terminal-border pb-2">
+              <span className="flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-terminal-green" /> Recent Visitor Stream
+              </span>
+              <span>Timestamp</span>
+            </div>
+            <div className="space-y-2">
+              {recentVisits.length === 0 ? (
+                <p className="text-[11px] text-terminal-subtext py-3 text-center">
+                  No visits recorded yet.
+                </p>
+              ) : (
+                recentVisits.map((v) => (
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between text-[11px] bg-terminal-black/50 p-2 rounded border border-terminal-border"
+                  >
+                    <div className="flex items-center gap-2 truncate max-w-[70%]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-terminal-green animate-pulse" />
+                      <span className="font-bold text-white">{v.path}</span>
+                      {v.referrer && (
+                        <span className="text-[10px] text-terminal-subtext truncate hidden sm:inline">
+                          via {v.referrer}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-terminal-subtext text-[10px] tabular-nums shrink-0">
+                      {new Date(v.createdAt).toLocaleTimeString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       {/* User Management & Manual VIP Grant Table */}
       <div className="bg-terminal-surface border border-terminal-border rounded-lg overflow-hidden shadow-xl">
