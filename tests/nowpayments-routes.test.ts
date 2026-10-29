@@ -25,11 +25,21 @@ vi.mock("@/lib/prisma", () => {
   const mockPlan = {
     findUnique: vi.fn(),
   };
+  const mockUser = {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  };
+  const mockReferralEarning = {
+    findFirst: vi.fn(),
+    create: vi.fn(),
+  };
   return {
     prisma: {
       payment: mockPayment,
       subscription: mockSubscription,
       plan: mockPlan,
+      user: mockUser,
+      referralEarning: mockReferralEarning,
       $transaction: vi.fn(async (ops: any[]) => Promise.all(ops)),
     },
   };

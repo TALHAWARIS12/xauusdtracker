@@ -5,6 +5,8 @@ import Link from "next/link";
 import { User, Shield, CreditCard, LayoutDashboard, Zap, CheckCircle2, XCircle } from "lucide-react";
 import { getSubscriptionStatus } from "@/lib/subscription";
 import { ChangePasswordForm } from "@/components/account/ChangePasswordForm";
+import { ReferralPanel } from "@/components/account/ReferralPanel";
+import { getReferralStats } from "@/actions/referral-actions";
 
 export default async function AccountPage() {
   const session = await auth();
@@ -32,6 +34,12 @@ export default async function AccountPage() {
 
   const sub = user.subscription;
   const isSubscribed = await getSubscriptionStatus(user.id);
+  const referralStats = await getReferralStats();
+
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXTAUTH_URL ||
+    "https://xauusdtracker.com";
 
   return (
     <div className="container-app py-10 max-w-4xl space-y-8">
@@ -178,6 +186,17 @@ export default async function AccountPage() {
 
       {/* Security & Passkey Management */}
       <ChangePasswordForm />
+
+      {/* Refer & Earn Panel */}
+      <ReferralPanel
+        initialCode={referralStats.referralCode}
+        totalReferrals={referralStats.totalReferrals}
+        activeReferrals={referralStats.activeReferrals}
+        totalRewardDays={referralStats.totalRewardDays}
+        totalCommissionUsd={referralStats.totalCommissionUsd}
+        earnings={referralStats.earnings}
+        appUrl={appUrl}
+      />
 
       {/* Payment History */}
       {user.payments && user.payments.length > 0 && (

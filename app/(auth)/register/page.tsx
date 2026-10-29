@@ -2,12 +2,16 @@
 
 import { useActionState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Terminal, Shield, Lock, Mail, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Terminal, Shield, Lock, Mail, CheckCircle2, AlertTriangle, ArrowRight, Gift } from "lucide-react";
 import { registerUser, RegisterState } from "@/actions/auth-actions";
+import { Suspense } from "react";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get("ref") ?? "";
+
   const [state, formAction, isPending] = useActionState<RegisterState | null, FormData>(
     registerUser,
     null
@@ -52,6 +56,20 @@ export default function RegisterPage() {
             </p>
           </div>
 
+          {/* Referral Badge */}
+          {refCode && (
+            <div className="mb-5 flex items-center gap-2.5 rounded border border-terminal-gold/40 bg-terminal-gold/10 px-3 py-2.5 text-xs text-terminal-gold">
+              <Gift className="w-4 h-4 shrink-0" />
+              <div>
+                <span className="font-bold">Referral Code Applied:</span>{" "}
+                <span className="font-mono tracking-wider">{refCode}</span>
+                <p className="text-[10px] text-terminal-gold/70 mt-0.5">
+                  Your referrer will earn rewards when you subscribe — register now to unlock the connection.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Success Notification */}
           {state?.success ? (
             <div className="p-4 bg-terminal-green/10 border border-terminal-green/40 rounded text-xs text-terminal-green flex items-start gap-3 my-4">
@@ -83,6 +101,9 @@ export default function RegisterPage() {
 
               {/* Form */}
               <form action={formAction} className="space-y-4">
+                {/* Hidden referral code field */}
+                <input type="hidden" name="referralCode" value={refCode} />
+
                 <div>
                   <label
                     htmlFor="email"
@@ -209,5 +230,17 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center bg-terminal-black">
+        <div className="w-8 h-8 border-2 border-terminal-gold border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <RegisterForm />
+    </Suspense>
   );
 }

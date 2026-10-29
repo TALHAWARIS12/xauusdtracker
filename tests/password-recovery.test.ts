@@ -27,9 +27,9 @@ describe("Operator Passkey Recovery & Security", () => {
   });
 
   it("validates that confirmPassword matches newPassword", () => {
-    const newPass = "TerminalSecure2026!";
-    const matchingConfirm = "TerminalSecure2026!";
-    const nonMatchingConfirm = "DifferentPass123!";
+    const newPass: string = "TerminalSecure2026!";
+    const matchingConfirm: string = "TerminalSecure2026!";
+    const nonMatchingConfirm: string = "DifferentPass123!";
 
     expect(newPass === matchingConfirm).toBe(true);
     expect(newPass === nonMatchingConfirm).toBe(false);

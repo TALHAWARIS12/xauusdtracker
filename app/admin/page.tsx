@@ -27,6 +27,10 @@ import {
   AdminAuditLogTable,
   AdminAuditItem,
 } from "@/components/admin/AdminAuditLogTable";
+import {
+  AdminReferralTable,
+  AdminReferralItem,
+} from "@/components/admin/AdminReferralTable";
 
 export default async function AdminPage() {
   const session = await auth();
@@ -146,6 +150,33 @@ export default async function AdminPage() {
     reason: a.reason,
     createdAt: a.createdAt.toISOString(),
   }));
+
+  // Retrieve referral program earnings
+  const dbReferrals = await prisma.referralEarning.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: {
+      referrer: { select: { email: true } },
+    },
+  });
+
+  const referralItems: AdminReferralItem[] = dbReferrals.map((r) => ({
+    id: r.id,
+    referrerEmail: r.referrer.email,
+    referredUserId: r.referredUserId,
+    commissionUsd: r.commissionUsd,
+    rewardDays: r.rewardDays,
+    status: r.status,
+    paymentId: r.paymentId,
+    createdAt: r.createdAt.toISOString(),
+    grantedAt: r.grantedAt?.toISOString() ?? null,
+  }));
+
+  const totalReferralCommission = dbReferrals
+    .filter((r) => r.status === "GRANTED")
+    .reduce((sum, r) => sum + r.commissionUsd, 0);
+
+  const uniqueReferrers = new Set(dbReferrals.map((r) => r.referrerId)).size;
 
   return (
     <div className="flex-1 bg-terminal-black text-xs font-mono p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-8 select-none">
@@ -411,6 +442,13 @@ export default async function AdminPage() {
 
       {/* Admin Audit Trail */}
       <AdminAuditLogTable events={auditEvents} />
+
+      {/* Referral Program Ledger */}
+      <AdminReferralTable
+        referrals={referralItems}
+        totalCommission={totalReferralCommission}
+        totalReferrers={uniqueReferrers}
+      />
     </div>
   );
 }

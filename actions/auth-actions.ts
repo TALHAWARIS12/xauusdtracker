@@ -42,6 +42,7 @@ export async function registerUser(
   const rawEmail = formData.get("email");
   const rawPassword = formData.get("password");
   const rawConfirmPassword = formData.get("confirmPassword");
+  const rawReferralCode = formData.get("referralCode");
 
   const validationResult = registerSchema.safeParse({
     email: rawEmail,
@@ -77,11 +78,24 @@ export async function registerUser(
     // Salt rounds 10 as strictly specified
     const passwordHash = await bcrypt.hash(password, 10);
 
+    // Validate referral code if provided
+    let referredByCode: string | undefined;
+    if (rawReferralCode && typeof rawReferralCode === "string" && rawReferralCode.trim().length > 0) {
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode: rawReferralCode.trim().toUpperCase() },
+        select: { id: true },
+      });
+      if (referrer) {
+        referredByCode = rawReferralCode.trim().toUpperCase();
+      }
+    }
+
     await prisma.user.create({
       data: {
         email: normalizedEmail,
         passwordHash,
         role: "USER",
+        referredByCode: referredByCode ?? null,
         subscription: {
           create: {
             status: "INACTIVE",

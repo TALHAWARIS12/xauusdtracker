@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { verifyIpnSignature, NowPaymentsIpnPayload } from "@/lib/nowpayments";
 import { ensurePlanExists } from "@/lib/ensure-plans";
 
+// Commission rate for referrals (20% of payment amount)
+const REFERRAL_COMMISSION_PERCENT = 0.2;
+// Free subscription days granted to referrer per successful referral
+const REFERRAL_REWARD_DAYS = 7;
+
 export async function POST(req: NextRequest) {
   // 1. HMAC Signature Verification: Intercept incoming raw body text
   const rawBody = await req.text();
@@ -165,6 +170,94 @@ export async function POST(req: NextRequest) {
             currentPeriodEnd,
           },
         });
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // 4. REFERRAL REWARD: Check if paying user was referred by anyone
+      // ─────────────────────────────────────────────────────────────
+      try {
+        if (prisma.user?.findUnique) {
+          const payingUser = await prisma.user.findUnique({
+            where: { id: transaction.userId },
+            select: { referredByCode: true },
+          });
+
+          if (payingUser?.referredByCode) {
+            // Find the referrer by their referral code
+            const referrer = await prisma.user.findUnique({
+              where: { referralCode: payingUser.referredByCode },
+              include: { subscription: true },
+            });
+
+            if (referrer && prisma.referralEarning?.findFirst) {
+              // Check if this referral has already been rewarded (idempotency)
+              const existingEarning = await prisma.referralEarning.findFirst({
+                where: {
+                  referrerId: referrer.id,
+                  referredUserId: transaction.userId,
+                  status: { in: ["GRANTED", "PAID_OUT"] },
+                },
+              });
+
+              if (!existingEarning) {
+                const commissionUsd = parseFloat(
+                  (transaction.amount * REFERRAL_COMMISSION_PERCENT).toFixed(2)
+                );
+
+                // Calculate new subscription end for referrer (+REFERRAL_REWARD_DAYS)
+                const referrerSub = referrer.subscription;
+                const referrerIsActive =
+                  referrerSub?.status === "ACTIVE" &&
+                  referrerSub?.currentPeriodEnd &&
+                  referrerSub.currentPeriodEnd.getTime() > Date.now();
+
+                const referrerBaseTime = referrerIsActive
+                  ? referrerSub!.currentPeriodEnd!.getTime()
+                  : Date.now();
+
+                const referrerNewEnd = new Date(
+                  referrerBaseTime + REFERRAL_REWARD_DAYS * 24 * 60 * 60 * 1000
+                );
+
+                // Grant referral reward and extend referrer's subscription
+                await prisma.$transaction([
+                  // Create earning record
+                  prisma.referralEarning.create({
+                    data: {
+                      referrerId: referrer.id,
+                      referredUserId: transaction.userId,
+                      paymentId: transaction.id,
+                      commissionUsd,
+                      rewardDays: REFERRAL_REWARD_DAYS,
+                      status: "GRANTED",
+                      grantedAt: new Date(),
+                    },
+                  }),
+                  // Extend referrer's subscription with free days
+                  prisma.subscription.upsert({
+                    where: { userId: referrer.id },
+                    create: {
+                      userId: referrer.id,
+                      status: "ACTIVE",
+                      currentPeriodEnd: referrerNewEnd,
+                    },
+                    update: {
+                      status: "ACTIVE",
+                      currentPeriodEnd: referrerNewEnd,
+                    },
+                  }),
+                ]);
+
+                console.log(
+                  `Referral reward granted: referrer=${referrer.id} earned $${commissionUsd} commission + ${REFERRAL_REWARD_DAYS} free days for referring user ${transaction.userId}`
+                );
+              }
+            }
+          }
+        }
+      } catch (referralError) {
+        // Referral reward failure must NEVER block the primary payment confirmation
+        console.error("Referral reward processing error (non-critical):", referralError);
       }
 
       return NextResponse.json({ success: true, status: "completed" }, { status: 200 });

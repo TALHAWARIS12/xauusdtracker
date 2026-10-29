@@ -30,6 +30,12 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum ReferralStatus {
+  PENDING
+  GRANTED
+  PAID_OUT
+}
+
 enum SetupDirection {
   BULLISH
   BEARISH
@@ -48,6 +54,11 @@ model User {
   role                      Role               @default(USER)
   createdAt                 DateTime           @default(now())
   updatedAt                 DateTime           @updatedAt
+  referralCode              String?            @unique
+  referredByCode            String?
+  referredBy                User?              @relation("Referrals", fields: [referredByCode], references: [referralCode])
+  referrals                 User[]             @relation("Referrals")
+  referralEarnings          ReferralEarning[]  @relation("ReferrerEarnings")
   subscription              Subscription?
   payments                  Payment[]
   adminAuditEventsPerformed AdminAuditEvent[]  @relation("AdminActor")
@@ -131,5 +142,21 @@ model SiteVisit {
 
   @@index([createdAt])
   @@index([path])
+}
+
+model ReferralEarning {
+  id             String         @id @default(cuid())
+  referrerId     String
+  referrer       User           @relation("ReferrerEarnings", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredUserId String
+  paymentId      String?
+  commissionUsd  Float          @default(0)
+  rewardDays     Int            @default(7)
+  status         ReferralStatus @default(PENDING)
+  grantedAt      DateTime?
+  createdAt      DateTime       @default(now())
+
+  @@index([referrerId])
+  @@index([referredUserId])
 }
 
