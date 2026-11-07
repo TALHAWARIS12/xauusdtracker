@@ -11,6 +11,8 @@ import {
   ArrowRight,
   Loader2,
   Coins,
+  CreditCard,
+  AlertTriangle,
 } from "lucide-react";
 import { PRICING_PLANS, getPlanById, PlanTier } from "@/lib/plan-config";
 
@@ -43,13 +45,13 @@ const CRYPTO_CONFIG: Record<
     name: "Bitcoin",
     symbol: "BTC",
     network: "Bitcoin Network",
-    rate: 0.000011, // ~90k BTC
+    rate: 0.000011,
   },
   ETH: {
     name: "Ethereum",
     symbol: "ETH",
     network: "Ethereum Mainnet",
-    rate: 0.00034, // ~2.9k ETH
+    rate: 0.00034,
   },
 };
 
@@ -62,8 +64,14 @@ export function CheckoutClient({
   const router = useRouter();
   const [selectedPlanId, setSelectedPlanId] = useState<string>(initialPlanId);
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoOption>("USDT_TRC20");
+
+  // NOWPayments state
   const [isNowPaymentsProcessing, setIsNowPaymentsProcessing] = useState<boolean>(false);
   const [nowPaymentsError, setNowPaymentsError] = useState<string | null>(null);
+
+  // Paystack state
+  const [isPaystackProcessing, setIsPaystackProcessing] = useState<boolean>(false);
+  const [paystackError, setPaystackError] = useState<string | null>(null);
 
   // Clean up any stale legacy cookies on mount
   useEffect(() => {
@@ -80,6 +88,7 @@ export function CheckoutClient({
     cryptoInfo.symbol === "USDT" ? 2 : 5
   );
 
+  // ── NOWPayments Crypto Checkout ──────────────────────────────────────────────
   const handleNowPaymentsCheckout = async () => {
     setIsNowPaymentsProcessing(true);
     setNowPaymentsError(null);
@@ -100,7 +109,6 @@ export function CheckoutClient({
         throw new Error(data.error || "Failed to initialize NOWPayments checkout session.");
       }
 
-      // Redirect directly to live NOWPayments checkout invoice
       window.location.href = data.checkoutUrl;
     } catch (err: any) {
       console.error("NOWPayments checkout error:", err);
@@ -110,19 +118,50 @@ export function CheckoutClient({
     }
   };
 
+  // ── Paystack Card Checkout ───────────────────────────────────────────────────
+  const handlePaystackCheckout = async () => {
+    setIsPaystackProcessing(true);
+    setPaystackError(null);
+    try {
+      const res = await fetch("/api/checkout/paystack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id }),
+      });
+
+      if (res.status === 401) {
+        router.push(`/login?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan.id}`)}`);
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data.checkoutUrl) {
+        throw new Error(data.error || "Failed to initialize Paystack card checkout.");
+      }
+
+      // Redirect to Paystack hosted payment page
+      window.location.href = data.checkoutUrl;
+    } catch (err: any) {
+      console.error("Paystack checkout error:", err);
+      setPaystackError(err?.message || "Failed to launch card checkout. Please try again.");
+    } finally {
+      setIsPaystackProcessing(false);
+    }
+  };
+
   return (
     <div className="container-app py-10 max-w-5xl space-y-8">
       {/* Title */}
       <div className="text-center space-y-2">
         <span className="badge-pro flex items-center gap-1.5 w-fit mx-auto">
-          <Coins className="h-3.5 w-3.5 text-gold-300" />
-          CRYPTOCURRENCY CHECKOUT · NOWPAYMENTS
+          <Zap className="h-3.5 w-3.5 text-gold-300" />
+          SECURE CHECKOUT · CARD &amp; CRYPTO
         </span>
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
           Complete Your Pro Subscription
         </h1>
         <p className="text-sm text-slate-400 max-w-lg mx-auto">
-          Instant clearance via NOWPayments gateway. Pay with USDT, Bitcoin, Ethereum, Solana, and 200+ cryptocurrencies.
+          Pay by card via Paystack or use crypto via NOWPayments. Both activate your Pro clearance instantly.
         </p>
       </div>
 
@@ -168,32 +207,115 @@ export function CheckoutClient({
             </div>
           </div>
 
-          {/* Crypto Payment Method Card */}
-          <div className="card p-6 space-y-6">
+          {/* Sign-in warning */}
+          {!userEmail && (
+            <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200 flex items-center justify-between">
+              <span>You are not signed in. Sign in to link your subscription to your account.</span>
+              <Link
+                href={`/login?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan.id}`)}`}
+                className="font-bold underline text-amber-300 hover:text-white shrink-0 ml-2"
+              >
+                Sign In →
+              </Link>
+            </div>
+          )}
+
+          {/* ── PAYSTACK CARD PAYMENT (PRIMARY) ─────────────────────────── */}
+          <div className="card p-6 space-y-5 border-gold-300/20">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div className="flex items-center gap-2">
-                <Coins className="h-4 w-4 text-gold-300" />
+                <CreditCard className="h-4 w-4 text-gold-300" />
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-white">
-                  2. Cryptocurrency Payment (NOWPayments)
+                  2. Pay by Card (Paystack)
                 </h2>
               </div>
               <span className="text-[11px] text-bull-300 flex items-center gap-1 font-medium">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                NOWPayments Official Gateway
+                Recommended
               </span>
             </div>
 
-            {!userEmail && (
-              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200 flex items-center justify-between">
-                <span>You are not signed in. Sign in to link your subscription clearance to your account.</span>
-                <Link
-                  href={`/login?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan.id}`)}`}
-                  className="font-bold underline text-amber-300 hover:text-white shrink-0 ml-2"
+            {/* Card logos / accepted methods */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {["VISA", "Mastercard", "Verve", "AMEX"].map((card) => (
+                <span
+                  key={card}
+                  className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-slate-300 tracking-wider"
                 >
-                  Sign In →
-                </Link>
+                  {card}
+                </span>
+              ))}
+              <span className="text-[10px] text-slate-500">+ Bank Transfer & Mobile Money</span>
+            </div>
+
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2 text-xs text-slate-300">
+              <div className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Instant Activation:</strong> Subscription unlocks immediately after payment confirmation.
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Secure PCI-DSS Checkout:</strong> Card details are handled by Paystack's certified payment page — we never store your card.
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Supported Currencies:</strong> USD, NGN, GHS, ZAR, KES and more accepted via Paystack.
+                </span>
+              </div>
+            </div>
+
+            {paystackError && (
+              <div className="rounded-lg bg-bear-400/10 border border-bear-400/30 p-3 text-xs text-bear-300 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                {paystackError}
               </div>
             )}
+
+            <button
+              type="button"
+              disabled={isPaystackProcessing || !userEmail}
+              onClick={handlePaystackCheckout}
+              className="btn-primary w-full py-3.5 text-sm font-bold shadow-gold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              id="paystack-checkout-btn"
+            >
+              {isPaystackProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Connecting to Paystack...</span>
+                </>
+              ) : (
+                <>
+                  <CreditCard className="h-4 w-4" />
+                  <span>Pay by Card via Paystack (${plan.priceUsd})</span>
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+
+            <p className="text-center text-[11px] text-slate-400">
+              Secure hosted checkout · PCI-DSS compliant · Instant subscription clearance
+            </p>
+          </div>
+
+          {/* ── NOWPAYMENTS CRYPTO PAYMENT (SECONDARY) ──────────────────── */}
+          <div className="card p-6 space-y-6 opacity-90">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
+              <div className="flex items-center gap-2">
+                <Coins className="h-4 w-4 text-gold-300" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-white">
+                  3. Pay with Crypto (NOWPayments)
+                </h2>
+              </div>
+              <span className="text-[11px] text-slate-400 flex items-center gap-1 font-medium">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                200+ Coins
+              </span>
+            </div>
 
             {/* Currency selector buttons */}
             <div className="space-y-2">
@@ -249,19 +371,13 @@ export function CheckoutClient({
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
                   <span>
-                    <strong>Dynamic Invoice & QR Code:</strong> A dedicated blockchain invoice address and real-time QR code are generated on the secure NOWPayments payment page.
+                    <strong>Dynamic Invoice &amp; QR Code:</strong> A dedicated blockchain invoice and QR code are generated on the NOWPayments page.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
                   <span>
-                    <strong>200+ Cryptocurrencies Supported:</strong> Accepts USDT (TRC20, ERC20, Polygon, Solana), BTC, ETH, SOL, LTC, and more.
-                  </span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Instant Automated Clearance:</strong> Access is provisioned to your account as soon as the network confirms the transaction.
+                    <strong>200+ Cryptocurrencies Supported:</strong> USDT (TRC20, ERC20, Polygon), BTC, ETH, SOL, LTC and more.
                   </span>
                 </div>
               </div>
@@ -274,12 +390,11 @@ export function CheckoutClient({
                 </div>
               )}
 
-              {/* Primary Action: Live NOWPayments Checkout */}
               <button
                 type="button"
                 disabled={isNowPaymentsProcessing}
                 onClick={handleNowPaymentsCheckout}
-                className="btn-primary w-full py-3.5 text-sm font-bold shadow-gold cursor-pointer"
+                className="btn-secondary w-full py-3.5 text-sm font-bold cursor-pointer hover:border-gold-300 hover:text-gold-200"
                 id="nowpayments-checkout-btn"
               >
                 {isNowPaymentsProcessing ? (
@@ -289,7 +404,7 @@ export function CheckoutClient({
                   </>
                 ) : (
                   <>
-                    <Zap className="h-4 w-4" />
+                    <Coins className="h-4 w-4" />
                     <span>Pay with Crypto via NOWPayments (${plan.priceUsd})</span>
                     <ArrowRight className="h-4 w-4" />
                   </>
@@ -297,7 +412,7 @@ export function CheckoutClient({
               </button>
 
               <p className="text-center text-[11px] text-slate-400">
-                Direct hosted crypto invoice · Automatic blockchain confirmation & clearance
+                Direct hosted crypto invoice · Automatic blockchain confirmation &amp; clearance
               </p>
             </div>
           </div>
@@ -347,7 +462,7 @@ export function CheckoutClient({
                 <span>Instant Account Activation</span>
               </div>
               <p>
-                Your clearance activates automatically upon blockchain network confirmation. Cancel or change plan anytime from Account settings.
+                Your clearance activates automatically upon payment confirmation — card or crypto. Cancel or change plan anytime from Account settings.
               </p>
             </div>
 
@@ -356,7 +471,7 @@ export function CheckoutClient({
                 href="/pricing"
                 className="btn-ghost w-full text-xs text-slate-400 hover:text-white text-center block"
               >
-                ‹ View All Plans & Comparison
+                ‹ View All Plans &amp; Comparison
               </Link>
             </div>
           </div>
