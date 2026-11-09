@@ -95,12 +95,18 @@ export function CheckoutClient({
     setIsIntaSendProcessing(true);
     setIntaSendError(null);
     try {
+      // Validate that user didn't accidentally enter an email into phone number field
+      const cleanPhone =
+        phoneNumber && !phoneNumber.includes("@") && phoneNumber.replace(/\D/g, "").length >= 9
+          ? phoneNumber.trim()
+          : undefined;
+
       const res = await fetch("/api/checkout/intasend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planId: plan.id,
-          phoneNumber: phoneNumber.trim() || undefined,
+          phoneNumber: cleanPhone,
         }),
       });
 
@@ -261,12 +267,15 @@ export function CheckoutClient({
 
             {/* Optional Phone Number Input */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-medium text-slate-300 flex items-center justify-between">
+              <label htmlFor="mpesa_mobile_number" className="text-[11px] font-medium text-slate-300 flex items-center justify-between">
                 <span>M-Pesa Mobile Number (Optional, for auto-fill)</span>
                 <span className="text-[10px] text-slate-500">e.g. 0712345678 or 254...</span>
               </label>
               <input
+                id="mpesa_mobile_number"
+                name="mpesa_mobile_number"
                 type="tel"
+                autoComplete="off"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="0712 345 678"

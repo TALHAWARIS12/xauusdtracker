@@ -169,3 +169,4 @@ export async function activateSuccessfulPayment(
 
   return { success: true, alreadyCompleted: false, isSubscribed: true };
 }
+

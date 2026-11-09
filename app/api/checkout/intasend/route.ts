@@ -59,12 +59,21 @@ export async function POST(req: Request) {
     // 5. Initialize IntaSend checkout session
     let intasendSession;
     try {
+      // Sanitize phone number (ignore if email or non-digit was entered by accident)
+      const validPhone =
+        typeof phoneNumber === "string" &&
+        !phoneNumber.includes("@") &&
+        phoneNumber.replace(/\D/g, "").length >= 9
+          ? phoneNumber.trim()
+          : undefined;
+
       intasendSession = await createIntaSendCheckoutSession({
         amountUsd: priceUsd,
         email: userEmail,
-        phoneNumber: typeof phoneNumber === "string" ? phoneNumber.trim() : undefined,
+        phoneNumber: validPhone,
         apiRef: payment.id,
-        redirectUrl: `${appUrl}/payment/status?order_id=${payment.id}&provider=intasend`,
+        // IntaSend appends ?checkout_id=... upon completion
+        redirectUrl: `${appUrl}/payment/status`,
       });
 
       if (!intasendSession?.url) {
@@ -108,3 +117,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

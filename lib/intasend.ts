@@ -63,8 +63,9 @@ function getBaseUrl(): string {
  * Format a phone number to standard international format (e.g., 2547XXXXXXXX for Kenya).
  */
 export function formatIntaSendPhoneNumber(phone: string): string {
-  if (!phone) return "";
+  if (!phone || phone.includes("@")) return "";
   const cleaned = phone.replace(/[^\d+]/g, "").replace(/^\+/, "");
+  if (cleaned.length < 9) return "";
   // If Kenyan local number e.g. 0712345678 or 0112345678
   if (/^0[17]\d{8}$/.test(cleaned)) {
     return `254${cleaned.slice(1)}`;
@@ -89,6 +90,9 @@ export async function createIntaSendCheckoutSession(
     ? formatIntaSendPhoneNumber(params.phoneNumber)
     : undefined;
 
+  // IntaSend strictly disallows query parameters in redirect_url
+  const cleanRedirectUrl = params.redirectUrl.split("?")[0];
+
   const payload: Record<string, any> = {
     public_key: pubKey,
     amount: params.amountUsd,
@@ -96,7 +100,7 @@ export async function createIntaSendCheckoutSession(
     email: params.email,
     first_name: params.firstName || "Customer",
     last_name: params.lastName || "Subscriber",
-    redirect_url: params.redirectUrl,
+    redirect_url: cleanRedirectUrl,
     api_ref: params.apiRef,
   };
 
@@ -130,19 +134,26 @@ export async function verifyIntaSendPayment(params: {
   checkout_id?: string;
   signature?: string;
 }): Promise<IntaSendPaymentStatusResponse> {
+  const pubKey = getPublishableKey();
   const secretKey = getSecretKey();
-  if (!secretKey) {
-    throw new Error("INTASEND_SECRET_KEY is not configured.");
+  if (!pubKey && !secretKey) {
+    throw new Error("IntaSend API keys are not configured.");
   }
 
   const baseUrl = getBaseUrl();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (pubKey) {
+    headers["X-IntaSend-Public-API-Key"] = pubKey;
+  }
+  if (secretKey) {
+    headers["Authorization"] = `Bearer ${secretKey}`;
+  }
 
   const response = await fetch(`${baseUrl}/api/v1/payment/status/`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${secretKey}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
       invoice_id: params.invoice_id,
       checkout_id: params.checkout_id,
@@ -169,3 +180,4 @@ export function verifyIntaSendWebhookChallenge(
   if (!expectedChallenge) return true;
   return payloadChallenge === expectedChallenge;
 }
+

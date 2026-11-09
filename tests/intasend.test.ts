@@ -31,6 +31,14 @@ describe("IntaSend Integration Helper Library", () => {
     it("returns empty string if phone is empty or undefined", () => {
       expect(formatIntaSendPhoneNumber("")).toBe("");
     });
+
+    it("returns empty string if phone contains email address", () => {
+      expect(formatIntaSendPhoneNumber("testuser@gmail.com")).toBe("");
+    });
+
+    it("returns empty string if phone is less than 9 digits", () => {
+      expect(formatIntaSendPhoneNumber("12345")).toBe("");
+    });
   });
 
   describe("verifyIntaSendWebhookChallenge", () => {
@@ -75,3 +83,4 @@ describe("IntaSend Integration Helper Library", () => {
     });
   });
 });
+
