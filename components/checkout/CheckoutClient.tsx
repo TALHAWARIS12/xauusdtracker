@@ -13,6 +13,7 @@ import {
   Coins,
   CreditCard,
   AlertTriangle,
+  Smartphone,
 } from "lucide-react";
 import { PRICING_PLANS, getPlanById, PlanTier } from "@/lib/plan-config";
 
@@ -65,13 +66,14 @@ export function CheckoutClient({
   const [selectedPlanId, setSelectedPlanId] = useState<string>(initialPlanId);
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoOption>("USDT_TRC20");
 
-  // NOWPayments state
+  // IntaSend (M-Pesa & Card) state
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [isIntaSendProcessing, setIsIntaSendProcessing] = useState<boolean>(false);
+  const [intaSendError, setIntaSendError] = useState<string | null>(null);
+
+  // NOWPayments crypto state
   const [isNowPaymentsProcessing, setIsNowPaymentsProcessing] = useState<boolean>(false);
   const [nowPaymentsError, setNowPaymentsError] = useState<string | null>(null);
-
-  // Paystack state
-  const [isPaystackProcessing, setIsPaystackProcessing] = useState<boolean>(false);
-  const [paystackError, setPaystackError] = useState<string | null>(null);
 
   // Clean up any stale legacy cookies on mount
   useEffect(() => {
@@ -87,6 +89,40 @@ export function CheckoutClient({
   const cryptoAmount = (plan.priceUsd * cryptoInfo.rate).toFixed(
     cryptoInfo.symbol === "USDT" ? 2 : 5
   );
+
+  // ── IntaSend M-Pesa & Card Checkout ──────────────────────────────────────────
+  const handleIntaSendCheckout = async () => {
+    setIsIntaSendProcessing(true);
+    setIntaSendError(null);
+    try {
+      const res = await fetch("/api/checkout/intasend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: plan.id,
+          phoneNumber: phoneNumber.trim() || undefined,
+        }),
+      });
+
+      if (res.status === 401) {
+        router.push(`/login?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan.id}`)}`);
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data.checkoutUrl) {
+        throw new Error(data.error || "Failed to initialize IntaSend checkout.");
+      }
+
+      // Redirect to IntaSend hosted payment page
+      window.location.href = data.checkoutUrl;
+    } catch (err: any) {
+      console.error("IntaSend checkout error:", err);
+      setIntaSendError(err?.message || "Failed to launch M-Pesa / Card checkout. Please try again.");
+    } finally {
+      setIsIntaSendProcessing(false);
+    }
+  };
 
   // ── NOWPayments Crypto Checkout ──────────────────────────────────────────────
   const handleNowPaymentsCheckout = async () => {
@@ -118,50 +154,19 @@ export function CheckoutClient({
     }
   };
 
-  // ── Paystack Card Checkout ───────────────────────────────────────────────────
-  const handlePaystackCheckout = async () => {
-    setIsPaystackProcessing(true);
-    setPaystackError(null);
-    try {
-      const res = await fetch("/api/checkout/paystack", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id }),
-      });
-
-      if (res.status === 401) {
-        router.push(`/login?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan.id}`)}`);
-        return;
-      }
-
-      const data = await res.json();
-      if (!res.ok || !data.checkoutUrl) {
-        throw new Error(data.error || "Failed to initialize Paystack card checkout.");
-      }
-
-      // Redirect to Paystack hosted payment page
-      window.location.href = data.checkoutUrl;
-    } catch (err: any) {
-      console.error("Paystack checkout error:", err);
-      setPaystackError(err?.message || "Failed to launch card checkout. Please try again.");
-    } finally {
-      setIsPaystackProcessing(false);
-    }
-  };
-
   return (
     <div className="container-app py-10 max-w-5xl space-y-8">
       {/* Title */}
       <div className="text-center space-y-2">
         <span className="badge-pro flex items-center gap-1.5 w-fit mx-auto">
           <Zap className="h-3.5 w-3.5 text-gold-300" />
-          SECURE CHECKOUT · CARD &amp; CRYPTO
+          SECURE CHECKOUT · M-PESA, CARDS &amp; CRYPTO
         </span>
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
           Complete Your Pro Subscription
         </h1>
         <p className="text-sm text-slate-400 max-w-lg mx-auto">
-          Pay by card via Paystack or use crypto via NOWPayments. Both activate your Pro clearance instantly.
+          Pay via M-Pesa or Card using IntaSend, or pay with 200+ cryptocurrencies via NOWPayments. Both activate your Pro clearance instantly.
         </p>
       </div>
 
@@ -220,90 +225,114 @@ export function CheckoutClient({
             </div>
           )}
 
-          {/* ── PAYSTACK CARD PAYMENT (PRIMARY) ─────────────────────────── */}
-          <div className="card p-6 space-y-5 border-gold-300/20">
+          {/* ── INTASEND M-PESA & CARD PAYMENT (PRIMARY) ─────────────────── */}
+          <div className="card p-6 space-y-5 border-bull-400/30 bg-bull-400/[0.02] relative overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-gold-300" />
+                <Smartphone className="h-4 w-4 text-bull-300" />
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-white">
-                  2. Pay by Card (Paystack)
+                  2. Pay with M-Pesa or Card (IntaSend)
                 </h2>
               </div>
-              <span className="text-[11px] text-bull-300 flex items-center gap-1 font-medium">
+              <span className="text-[11px] text-bull-300 flex items-center gap-1 font-medium bg-bull-400/10 border border-bull-400/20 px-2 py-0.5 rounded-full">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Recommended
               </span>
             </div>
 
-            {/* Card logos / accepted methods */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {["VISA", "Mastercard", "Verve", "AMEX"].map((card) => (
-                <span
-                  key={card}
-                  className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-slate-300 tracking-wider"
-                >
-                  {card}
-                </span>
-              ))}
-              <span className="text-[10px] text-slate-500">+ Bank Transfer & Mobile Money</span>
+            {/* Accepted Rails Badges */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="rounded border border-bull-400/30 bg-bull-400/10 px-2.5 py-1 text-[11px] font-bold text-bull-200 tracking-wider">
+                M-PESA (STK Push)
+              </span>
+              <span className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-slate-300 tracking-wider">
+                VISA
+              </span>
+              <span className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-slate-300 tracking-wider">
+                Mastercard
+              </span>
+              <span className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-slate-300 tracking-wider">
+                Airtel Money
+              </span>
+              <span className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-slate-300 tracking-wider">
+                PesaLink
+              </span>
+            </div>
+
+            {/* Optional Phone Number Input */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-slate-300 flex items-center justify-between">
+                <span>M-Pesa Mobile Number (Optional, for auto-fill)</span>
+                <span className="text-[10px] text-slate-500">e.g. 0712345678 or 254...</span>
+              </label>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="0712 345 678"
+                className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-bull-400 focus:outline-none focus:ring-1 focus:ring-bull-400 font-mono"
+              />
+              <p className="text-[10px] text-slate-400">
+                If provided, IntaSend will automatically prefill your M-Pesa prompt for direct PIN verification.
+              </p>
             </div>
 
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2 text-xs text-slate-300">
               <div className="flex items-start gap-2">
                 <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Instant Activation:</strong> Subscription unlocks immediately after payment confirmation.
+                  <strong>Instant M-Pesa STK Push:</strong> Select M-Pesa on the checkout page to receive an immediate PIN prompt on your Safaricom line.
                 </span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Secure PCI-DSS Checkout:</strong> Card details are handled by Paystack's certified payment page — we never store your card.
+                  <strong>Debit / Credit Cards:</strong> Also accepts Visa and Mastercard via 3D-Secure encrypted processing.
                 </span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Supported Currencies:</strong> USD, NGN, GHS, ZAR, KES and more accepted via Paystack.
+                  <strong>Zero-Delay Clearance:</strong> Account upgrades to Pro institutional access immediately once payment is confirmed.
                 </span>
               </div>
             </div>
 
-            {paystackError && (
+            {intaSendError && (
               <div className="rounded-lg bg-bear-400/10 border border-bear-400/30 p-3 text-xs text-bear-300 flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                {paystackError}
+                {intaSendError}
               </div>
             )}
 
             <button
               type="button"
-              disabled={isPaystackProcessing || !userEmail}
-              onClick={handlePaystackCheckout}
+              disabled={isIntaSendProcessing || !userEmail}
+              onClick={handleIntaSendCheckout}
               className="btn-primary w-full py-3.5 text-sm font-bold shadow-gold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              id="paystack-checkout-btn"
+              id="intasend-checkout-btn"
             >
-              {isPaystackProcessing ? (
+              {isIntaSendProcessing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Connecting to Paystack...</span>
+                  <span>Connecting to IntaSend...</span>
                 </>
               ) : (
                 <>
-                  <CreditCard className="h-4 w-4" />
-                  <span>Pay by Card via Paystack (${plan.priceUsd})</span>
+                  <Smartphone className="h-4 w-4" />
+                  <span>Pay with M-Pesa / Card (${plan.priceUsd})</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
 
             <p className="text-center text-[11px] text-slate-400">
-              Secure hosted checkout · PCI-DSS compliant · Instant subscription clearance
+              Secure IntaSend checkout · Multi-currency KES/USD · Instant activation
             </p>
           </div>
 
           {/* ── NOWPAYMENTS CRYPTO PAYMENT (SECONDARY) ──────────────────── */}
-          <div className="card p-6 space-y-6 opacity-90">
+          <div className="card p-6 space-y-6 opacity-95">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div className="flex items-center gap-2">
                 <Coins className="h-4 w-4 text-gold-300" />
@@ -377,7 +406,7 @@ export function CheckoutClient({
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
                   <span>
-                    <strong>200+ Cryptocurrencies Supported:</strong> USDT (TRC20, ERC20, Polygon), BTC, ETH, SOL, LTC and more.
+                    <strong>200+ Cryptocurrencies Supported:</strong> Accepts USDT (TRC20, ERC20, Polygon), BTC, ETH, SOL, LTC and more.
                   </span>
                 </div>
               </div>
@@ -392,9 +421,9 @@ export function CheckoutClient({
 
               <button
                 type="button"
-                disabled={isNowPaymentsProcessing}
+                disabled={isNowPaymentsProcessing || !userEmail}
                 onClick={handleNowPaymentsCheckout}
-                className="btn-secondary w-full py-3.5 text-sm font-bold cursor-pointer hover:border-gold-300 hover:text-gold-200"
+                className="btn-secondary w-full py-3.5 text-sm font-bold cursor-pointer hover:border-gold-300 hover:text-gold-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 id="nowpayments-checkout-btn"
               >
                 {isNowPaymentsProcessing ? (
@@ -462,7 +491,7 @@ export function CheckoutClient({
                 <span>Instant Account Activation</span>
               </div>
               <p>
-                Your clearance activates automatically upon payment confirmation — card or crypto. Cancel or change plan anytime from Account settings.
+                Your clearance activates automatically upon payment confirmation — M-Pesa, card, or crypto. Cancel or change plan anytime from Account settings.
               </p>
             </div>
 

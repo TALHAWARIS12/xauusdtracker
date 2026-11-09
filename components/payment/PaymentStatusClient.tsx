@@ -18,6 +18,8 @@ import {
 interface PaymentStatusClientProps {
   initialOrderId?: string | null;
   urlStatus?: string | null;
+  initialInvoiceId?: string | null;
+  initialProvider?: string | null;
 }
 
 type DisplayState = "LOADING" | "SUCCESS" | "PENDING" | "FAILED";
@@ -35,8 +37,12 @@ interface TransactionDetails {
 export function PaymentStatusClient({
   initialOrderId,
   urlStatus,
+  initialInvoiceId,
+  initialProvider,
 }: PaymentStatusClientProps) {
   const [orderId] = useState<string | null>(initialOrderId || null);
+  const [invoiceId] = useState<string | null>(initialInvoiceId || null);
+  const [provider] = useState<string | null>(initialProvider || null);
   const [displayState, setDisplayState] = useState<DisplayState>(() => {
     if (urlStatus === "cancelled") return "FAILED";
     return "LOADING";
@@ -50,14 +56,18 @@ export function PaymentStatusClient({
       if (urlStatus === "cancelled") {
         setDisplayState("FAILED");
       } else {
-        // Without an order reference, NEVER claim success - keep as pending verification
+        // Without an order reference, keep as pending verification
         setDisplayState("PENDING");
       }
       return;
     }
 
     try {
-      const res = await fetch(`/api/payment/status?order_id=${encodeURIComponent(orderId)}`);
+      const queryParams = new URLSearchParams({ order_id: orderId });
+      if (invoiceId) {
+        queryParams.set("invoice_id", invoiceId);
+      }
+      const res = await fetch(`/api/payment/status?${queryParams.toString()}`);
       if (!res.ok) {
         if (res.status === 404 && urlStatus === "cancelled") {
           setDisplayState("FAILED");
@@ -124,12 +134,16 @@ export function PaymentStatusClient({
           <div className="flex items-center gap-2">
             <span className="badge-pro">
               <Sparkles className="h-3 w-3" />
-              NOWPAYMENTS GATEWAY
+              {details?.provider === "INTASEND" || provider === "intasend"
+                ? "INTASEND M-PESA & CARD"
+                : "NOWPAYMENTS GATEWAY"}
             </span>
           </div>
           <span className="text-[11px] text-slate-400 flex items-center gap-1 font-mono">
             <ShieldCheck className="h-3.5 w-3.5 text-bull-300" />
-            Verified Cryptographic Channel
+            {details?.provider === "INTASEND" || provider === "intasend"
+              ? "Verified Mobile Money & Card Rail"
+              : "Verified Cryptographic Channel"}
           </span>
         </div>
 

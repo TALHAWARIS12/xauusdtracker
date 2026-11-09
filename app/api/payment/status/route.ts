@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyIntaSendPayment } from "@/lib/intasend";
+import { activateSuccessfulPayment } from "@/lib/payment-activation";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const orderId = searchParams.get("order_id") || searchParams.get("orderId");
+    const invoiceId = searchParams.get("invoice_id") || searchParams.get("invoiceId");
 
     if (!orderId) {
       return NextResponse.json(
@@ -13,11 +16,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const transaction = await prisma.payment.findFirst({
+    let transaction = await prisma.payment.findFirst({
       where: {
         OR: [
           { id: String(orderId) },
           { providerReference: String(orderId) },
+          ...(invoiceId ? [{ providerReference: String(invoiceId) }] : []),
         ],
       },
       include: {
@@ -41,6 +45,42 @@ export async function GET(req: NextRequest) {
         { found: false, error: "Transaction not found." },
         { status: 404 }
       );
+    }
+
+    // Active verification on return redirect for IntaSend
+    if (transaction.status === "PENDING" && transaction.provider === "INTASEND") {
+      const targetInvoice = invoiceId || transaction.providerReference;
+      if (targetInvoice && process.env.INTASEND_SECRET_KEY) {
+        try {
+          const verified = await verifyIntaSendPayment({ invoice_id: String(targetInvoice) });
+          if (verified?.state === "COMPLETE") {
+            await activateSuccessfulPayment(transaction.id, String(targetInvoice));
+            const updated = await prisma.payment.findUnique({
+              where: { id: transaction.id },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    email: true,
+                    subscription: {
+                      select: {
+                        status: true,
+                        currentPeriodEnd: true,
+                      },
+                    },
+                  },
+                },
+              },
+            });
+            if (updated) {
+              transaction = updated;
+            }
+          }
+        } catch (pollErr) {
+          // Non-blocking lookup check
+          console.warn("IntaSend active polling lookup check warning:", pollErr);
+        }
+      }
     }
 
     const isSubscribed =
