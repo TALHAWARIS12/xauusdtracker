@@ -10,7 +10,6 @@ import {
   RefreshCw,
   ShieldCheck,
   Zap,
-  ExternalLink,
   Layers,
   Sparkles,
 } from "lucide-react";
@@ -40,9 +39,9 @@ export function PaymentStatusClient({
   initialInvoiceId,
   initialProvider,
 }: PaymentStatusClientProps) {
-  const [orderId] = useState<string | null>(initialOrderId || null);
-  const [invoiceId] = useState<string | null>(initialInvoiceId || null);
-  const [provider] = useState<string | null>(initialProvider || null);
+  const [orderId, setOrderId] = useState<string | null>(initialOrderId || null);
+  const [invoiceId, setInvoiceId] = useState<string | null>(initialInvoiceId || null);
+  const [provider, setProvider] = useState<string | null>(initialProvider || null);
   const [displayState, setDisplayState] = useState<DisplayState>(() => {
     if (urlStatus === "cancelled") return "FAILED";
     return "LOADING";
@@ -51,29 +50,42 @@ export function PaymentStatusClient({
   const [pollCount, setPollCount] = useState<number>(0);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  const fetchStatus = useCallback(async () => {
-    if (!orderId) {
-      if (urlStatus === "cancelled") {
-        setDisplayState("FAILED");
-      } else {
-        // Without an order reference, keep as pending verification
-        setDisplayState("PENDING");
+  // Client-side URL param fallback on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlCheckoutId = searchParams.get("checkout_id") || searchParams.get("checkoutId");
+      const urlInvoiceId = searchParams.get("invoice_id") || searchParams.get("invoiceId");
+      const urlOrderId = searchParams.get("order_id") || searchParams.get("orderId");
+      if (!orderId && (urlCheckoutId || urlOrderId)) {
+        setOrderId(urlCheckoutId || urlOrderId);
       }
-      return;
+      if (!invoiceId && urlInvoiceId) {
+        setInvoiceId(urlInvoiceId);
+      }
+      if (!provider && (urlCheckoutId || urlInvoiceId)) {
+        setProvider("intasend");
+      }
     }
+  }, [orderId, invoiceId, provider]);
 
+  const fetchStatus = useCallback(async () => {
     try {
-      const queryParams = new URLSearchParams({ order_id: orderId });
+      const queryParams = new URLSearchParams();
+      if (orderId) {
+        queryParams.set("order_id", orderId);
+      }
       if (invoiceId) {
         queryParams.set("invoice_id", invoiceId);
       }
-      const res = await fetch(`/api/payment/status?${queryParams.toString()}`);
+      const queryStr = queryParams.toString();
+      const res = await fetch(`/api/payment/status${queryStr ? `?${queryStr}` : ""}`);
+
       if (!res.ok) {
         if (res.status === 404 && urlStatus === "cancelled") {
           setDisplayState("FAILED");
           return;
         }
-        // If not found yet but recently created, treat as pending verification
         setDisplayState("PENDING");
         return;
       }
@@ -81,13 +93,15 @@ export function PaymentStatusClient({
       const data = await res.json();
       setDetails(data);
 
-      // STRICT GATE: Only show SUCCESS if database explicitly confirms transaction is COMPLETED
-      if (data.status === "COMPLETED") {
+      if (data.status === "COMPLETED" || data.isSubscribed) {
         setDisplayState("SUCCESS");
-      } else if (data.status === "FAILED" || data.status === "REFUNDED" || urlStatus === "cancelled") {
+      } else if (
+        data.status === "FAILED" ||
+        data.status === "REFUNDED" ||
+        urlStatus === "cancelled"
+      ) {
         setDisplayState("FAILED");
       } else {
-        // Any intermediate status (waiting, confirming, sending, pending) remains in PENDING state
         setDisplayState("PENDING");
       }
     } catch (err) {
@@ -98,16 +112,14 @@ export function PaymentStatusClient({
         setDisplayState("PENDING");
       }
     }
-  }, [orderId, urlStatus]);
+  }, [orderId, invoiceId, urlStatus]);
 
-  // Initial fetch and automatic polling for pending blockchain transactions
+  // Initial fetch and automatic polling
   useEffect(() => {
     fetchStatus();
 
-    // Only set up polling if state is pending or initial loading
     const interval = setInterval(() => {
       setPollCount((prev) => {
-        // Poll for up to 100 iterations (~5 minutes)
         if (prev < 100) {
           fetchStatus();
           return prev + 1;
@@ -125,6 +137,11 @@ export function PaymentStatusClient({
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
+  const isIntaSend =
+    details?.provider === "INTASEND" ||
+    provider === "intasend" ||
+    provider === "INTASEND";
+
   return (
     <div className="container-app py-12 max-w-2xl" id="payment-status-container">
       {/* Outer Card with Glassmorphic Accent */}
@@ -134,14 +151,12 @@ export function PaymentStatusClient({
           <div className="flex items-center gap-2">
             <span className="badge-pro">
               <Sparkles className="h-3 w-3" />
-              {details?.provider === "INTASEND" || provider === "intasend"
-                ? "INTASEND M-PESA & CARD"
-                : "NOWPAYMENTS GATEWAY"}
+              {isIntaSend ? "INTASEND M-PESA & CARD" : "NOWPAYMENTS GATEWAY"}
             </span>
           </div>
           <span className="text-[11px] text-slate-400 flex items-center gap-1 font-mono">
             <ShieldCheck className="h-3.5 w-3.5 text-bull-300" />
-            {details?.provider === "INTASEND" || provider === "intasend"
+            {isIntaSend
               ? "Verified Mobile Money & Card Rail"
               : "Verified Cryptographic Channel"}
           </span>
@@ -161,7 +176,7 @@ export function PaymentStatusClient({
                 Payment Confirmed! Your subscription is now active.
               </h1>
               <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-                Your blockchain transaction has been verified. Institutional clearance has been granted with zero-delay live gold liquidity and proprietary algorithmic signals.
+                Your payment has been verified. Institutional clearance has been granted with zero-delay live gold liquidity and algorithmic signals.
               </p>
             </div>
 
@@ -224,10 +239,14 @@ export function PaymentStatusClient({
             {/* Title & Description */}
             <div className="space-y-2">
               <h1 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                Payment detected. Waiting for blockchain confirmation...
+                {isIntaSend
+                  ? "Payment in progress. Waiting for confirmation..."
+                  : "Payment detected. Waiting for blockchain confirmation..."}
               </h1>
               <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-                We are actively listening for network confirmations on your deposit. Your institutional clearance will unlock automatically the instant block confirmations are reached.
+                {isIntaSend
+                  ? "Please check your phone for the M-Pesa PIN prompt if you haven't authorized it yet. Your institutional clearance will unlock automatically once confirmed."
+                  : "We are actively listening for network confirmations on your deposit. Your institutional clearance will unlock automatically the instant block confirmations are reached."}
               </p>
             </div>
 
@@ -240,7 +259,7 @@ export function PaymentStatusClient({
                   }`}
                 />
                 <span className="font-medium">
-                  Auto-checking ledger every 3s (Check #{pollCount + 1})...
+                  Auto-checking status every 3s (Check #{pollCount + 1})...
                 </span>
               </div>
               <button
@@ -255,11 +274,13 @@ export function PaymentStatusClient({
             </div>
 
             {/* Transaction Metadata */}
-            {orderId && (
+            {(orderId || details?.orderId) && (
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-left text-xs space-y-2 font-mono">
                 <div className="flex justify-between text-slate-400">
-                  <span>Tracking Order ID:</span>
-                  <span className="text-slate-200 select-all">{orderId}</span>
+                  <span>Tracking Reference:</span>
+                  <span className="text-slate-200 select-all">
+                    {orderId || details?.orderId}
+                  </span>
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Status:</span>
@@ -291,15 +312,15 @@ export function PaymentStatusClient({
                 Payment failed or expired. Please try again.
               </h1>
               <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-                The crypto transaction was cancelled, expired, or failed verification. No funds have been deducted from your subscription account.
+                The transaction was cancelled, expired, or failed verification. No funds have been deducted from your subscription account.
               </p>
             </div>
 
-            {orderId && (
+            {(orderId || details?.orderId) && (
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-left text-xs space-y-2 font-mono">
                 <div className="flex justify-between text-slate-400">
                   <span>Order Reference:</span>
-                  <span className="text-slate-300">{orderId}</span>
+                  <span className="text-slate-300">{orderId || details?.orderId}</span>
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Outcome:</span>
