@@ -13,6 +13,7 @@ import { auth } from "@/auth";
 import { getSubscriptionStatus } from "@/lib/subscription";
 import { PricingMatrix } from "@/components/pricing/PricingMatrix";
 import { HomeSpotWidget } from "@/components/market/HomeSpotWidget";
+import { ReviewsAndProfitWall } from "@/components/community/ReviewsAndProfitWall";
 
 export default async function HomePage() {
   let session = null;
@@ -177,6 +178,12 @@ export default async function HomePage() {
 
         <PricingMatrix isSubscribed={isSubscribed} />
       </section>
+
+      {/* VERIFIED TRADER REVIEWS & COMMUNITY PROFIT WALL */}
+      <ReviewsAndProfitWall
+        userEmail={session?.user?.email}
+        isSubscribed={isSubscribed}
+      />
 
       {/* FINAL CTA BANNER */}
       <section className="container-app max-w-5xl">

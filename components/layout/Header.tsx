@@ -26,12 +26,16 @@ export function Header({ session, isPro = false }: HeaderProps) {
     { label: "Overview", href: "/" },
     { label: "Dashboard", href: "/dashboard" },
     { label: "Pricing", href: "/pricing" },
+    { label: "Reviews", href: "/#reviews" },
+    { label: "Trader Profits", href: "/#wins" },
     ...(session?.user ? [{ label: "Account", href: "/account" }] : []),
     ...(session?.user?.role === "ADMIN" ? [{ label: "Admin", href: "/admin" }] : []),
   ];
 
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const isActive = (href: string) => {
+    if (href.startsWith("/#")) return false;
+    return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  };
 
   const initials = (session?.user?.email ?? "?").slice(0, 1).toUpperCase();
 
