@@ -14,6 +14,13 @@ function RegisterForm() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [timezone, setTimezone] = useState("");
+
+  useEffect(() => {
+    try {
+      setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone || "");
+    } catch {}
+  }, []);
 
   const [state, formAction, isPending] = useActionState<RegisterState | null, FormData>(
     registerUser,
@@ -93,8 +100,9 @@ function RegisterForm() {
 
             {/* Form */}
             <form action={formAction} className="space-y-4">
-              {/* Hidden referral code field */}
+              {/* Hidden referral code and timezone fields */}
               <input type="hidden" name="referralCode" value={refCode} />
+              <input type="hidden" name="timezone" value={timezone} />
 
               <div>
                 <label

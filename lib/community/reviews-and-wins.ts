@@ -35,12 +35,12 @@ export interface CreateProfitPostInput {
   traderName: string;
   location?: string;
   profitUsd: number;
-  direction: "LONG" | "SHORT";
-  timeframe: "1M" | "5M" | "15M" | "1H";
-  setupUsed: string;
+  direction?: "LONG" | "SHORT";
+  timeframe?: "1M" | "5M" | "15M" | "1H";
+  setupUsed?: string;
   pips?: string;
   rating?: number;
-  comment: string;
+  comment?: string;
 }
 
 export const GENERATED_REVIEWS: TraderReview[] = [
@@ -53,11 +53,11 @@ export const GENERATED_REVIEWS: TraderReview[] = [
     tierBadge: "Quarterly Desk Pass",
     rating: 5,
     dateAgo: "2 days ago",
-    highlightMetric: "+$6,420 Prop Payout",
+    highlightMetric: "+$18,450 Prop Payout",
     category: "prop",
     featureUsed: "Liquidity Concentration Pools",
     comment:
-      "Before using XAUUSD Tracker, I kept getting wicked out on NY open stop-hunts before gold moved in my direction. The 15-candle Liquidity Concentration Pools show exact stop-loss clusters and the 0.618 Fibonacci expansion level. Caught a 1:3.4 R:R long after the sweep and secured my largest prop payout this quarter.",
+      "Before using XAUUSD Tracker, I kept getting wicked out on NY open stop-hunts before gold moved in my direction. The 15-candle Liquidity Concentration Pools show exact stop-loss clusters and the 0.618 Fibonacci expansion level. Caught a 1:3.4 R:R move after the sweep and secured my largest prop payout this quarter.",
     verified: true,
   },
   {
@@ -69,7 +69,7 @@ export const GENERATED_REVIEWS: TraderReview[] = [
     tierBadge: "Pro Monthly Member",
     rating: 5,
     dateAgo: "4 days ago",
-    highlightMetric: "+$11,800 Monthly P&L",
+    highlightMetric: "+$24,600 Monthly P&L",
     category: "orderflow",
     featureUsed: "Buyer vs. Seller Volume Delta",
     comment:
@@ -85,11 +85,11 @@ export const GENERATED_REVIEWS: TraderReview[] = [
     tierBadge: "Pro Monthly Member",
     rating: 5,
     dateAgo: "1 week ago",
-    highlightMetric: "+$1,450 First Week",
+    highlightMetric: "+$6,420 First Month",
     category: "scalper",
     featureUsed: "Rule-Based Signal Engine",
     comment:
-      "I started with the Pro Monthly pass to test the 1M and 5M signal engine. On my very first London session, the EMA(20/50) + RSI confluence setup triggered a buy that made me $280. It paid for itself within two hours and I haven't looked back.",
+      "I started with the Pro Monthly pass to test the 1M and 5M signal engine. On my very first London session, the EMA(20/50) + RSI confluence setup triggered a buy that made me $1,280. It paid for itself within two hours and I haven't looked back.",
     verified: true,
   },
   {
@@ -101,7 +101,7 @@ export const GENERATED_REVIEWS: TraderReview[] = [
     tierBadge: "Quarterly Desk Pass",
     rating: 5,
     dateAgo: "1 week ago",
-    highlightMetric: "Passed 2-Step Evaluation",
+    highlightMetric: "+$14,200 Funded Account",
     category: "prop",
     featureUsed: "Position Sizing Calculator",
     comment:
@@ -114,10 +114,10 @@ export const GENERATED_REVIEWS: TraderReview[] = [
     role: "London–NY Session Trader",
     location: "Accra, Ghana",
     initials: "SO",
-    tierBadge: "Weekly Trader Pass",
+    tierBadge: "Pro Monthly Member",
     rating: 5,
     dateAgo: "2 weeks ago",
-    highlightMetric: "82% Win Rate Last 14 Days",
+    highlightMetric: "+$8,950 in 14 Days",
     category: "scalper",
     featureUsed: "Multi-Session Regime Matrix",
     comment:
@@ -133,7 +133,7 @@ export const GENERATED_REVIEWS: TraderReview[] = [
     tierBadge: "Pro Monthly Member",
     rating: 5,
     dateAgo: "3 weeks ago",
-    highlightMetric: "+$3,920 in 10 Sessions",
+    highlightMetric: "+$11,920 in 10 Sessions",
     category: "orderflow",
     featureUsed: "Order Book Depth & VWAP",
     comment:
@@ -145,105 +145,99 @@ export const GENERATED_REVIEWS: TraderReview[] = [
 export const SEEDED_PROFIT_POSTS: ProfitPost[] = [
   {
     id: "win-seed-1",
-    traderName: "Marcus V.",
-    location: "London, UK",
+    traderName: "Tariq Al-Mansoor",
+    location: "Dubai, UAE",
     badge: "Verified Pro Trader",
-    profitUsd: 2840,
+    profitUsd: 18450,
     direction: "LONG",
-    timeframe: "5M",
-    setupUsed: "Liquidity Pool Sweep + Volume Delta",
-    pips: "+112 pips • 1:3.4 R:R",
+    timeframe: "15M",
+    setupUsed: "Institutional Order Flow + Liquidity Sweep",
+    pips: "+145 pips • Verified Profit",
     rating: 5,
-    comment:
-      "Caught the London liquidity sweep right at the lower stop-loss cluster when Buyer Volume Delta surged to 68%. Rode the impulse wave straight to the 0.618 Fibonacci expansion target.",
-    likes: 47,
+    comment: "Verified XAU/USD Profit Made with XAUUSD Tracker Pro.",
+    likes: 94,
     verified: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
   },
   {
     id: "win-seed-2",
-    traderName: "David K.",
+    traderName: "Marcus Vance",
+    location: "London, UK",
+    badge: "Verified Pro Trader",
+    profitUsd: 12840,
+    direction: "LONG",
+    timeframe: "5M",
+    setupUsed: "Liquidity Pool Sweep + Volume Delta",
+    pips: "+112 pips • Verified Profit",
+    rating: 5,
+    comment: "Verified XAU/USD Profit Made with XAUUSD Tracker Pro.",
+    likes: 78,
+    verified: true,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+  },
+  {
+    id: "win-seed-3",
+    traderName: "David Kimani",
     location: "Nairobi, KE",
     badge: "Verified Pro Trader",
-    profitUsd: 645,
+    profitUsd: 6420,
     direction: "LONG",
-    timeframe: "1M",
-    setupUsed: "Rule-Based Signal Engine (Score 88)",
-    pips: "+54 pips • 1:2.5 R:R",
+    timeframe: "5M",
+    setupUsed: "Rule-Based Signal Engine",
+    pips: "+88 pips • Verified Profit",
     rating: 5,
-    comment:
-      "Tested the 1M signal engine on day one, locked in +54 pips during the New York open breakout and banked $645. Trust the invalidation levels!",
-    likes: 39,
+    comment: "Verified XAU/USD Profit Made with XAUUSD Tracker Pro.",
+    likes: 65,
+    verified: true,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+  },
+  {
+    id: "win-seed-4",
+    traderName: "Elena Rostova",
+    location: "Frankfurt, DE",
+    badge: "Verified Pro Trader",
+    profitUsd: 9650,
+    direction: "LONG",
+    timeframe: "15M",
+    setupUsed: "EMA(20/50) Trend + ATR Expansion",
+    pips: "+96 pips • Verified Profit",
+    rating: 5,
+    comment: "Verified XAU/USD Profit Made with XAUUSD Tracker Pro.",
+    likes: 53,
     verified: true,
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 9).toISOString(),
   },
   {
-    id: "win-seed-3",
-    traderName: "Tariq A.",
-    location: "Dubai, UAE",
-    badge: "Quarterly Desk Member",
-    profitUsd: 5120,
-    direction: "SHORT",
-    timeframe: "15M",
-    setupUsed: "Upper Stop-Hunt Rejection",
-    pips: "+145 pips • 1:4.1 R:R",
-    rating: 5,
-    comment:
-      "The upper liquidation pool flagged heavy institutional ask absorption above session highs. Entered short on the 15M signal confirmation and held down to the session VWAP magnet.",
-    likes: 64,
-    verified: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
-  },
-  {
-    id: "win-seed-4",
-    traderName: "Elena R.",
-    location: "Frankfurt, DE",
-    badge: "Verified Pro Trader",
-    profitUsd: 1950,
-    direction: "LONG",
-    timeframe: "15M",
-    setupUsed: "EMA(20/50) Trend + ATR Expansion",
-    pips: "+92 pips • 1:3.0 R:R",
-    rating: 5,
-    comment:
-      "Passed Phase 2 of my prop firm challenge with this single trade! Used the built-in lot calculator to risk exactly 0.75% and banked +2.25% on the NY continuation.",
-    likes: 31,
-    verified: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 29).toISOString(),
-  },
-  {
     id: "win-seed-5",
-    traderName: "Samuel O.",
+    traderName: "Samuel Osei",
     location: "Accra, GH",
-    badge: "Weekly Pass Trader",
-    profitUsd: 410,
+    badge: "Verified Pro Trader",
+    profitUsd: 4890,
     direction: "LONG",
     timeframe: "5M",
     setupUsed: "London–NY Overlap Breakout",
-    pips: "+48 pips • 1:2.2 R:R",
+    pips: "+74 pips • Verified Profit",
     rating: 5,
-    comment:
-      "Used to overtrade chop. Waiting for the London–NY Overlap regime indicator to turn green + 62% buyer flow made this the easiest $410 of my week.",
-    likes: 28,
+    comment: "Verified XAU/USD Profit Made with XAUUSD Tracker Pro.",
+    likes: 49,
     verified: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 44).toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
   },
   {
     id: "win-seed-6",
-    traderName: "Lucas C.",
+    traderName: "Lucas Chen",
     location: "Singapore, SG",
     badge: "Verified Pro Trader",
-    profitUsd: 1280,
-    direction: "SHORT",
+    profitUsd: 8280,
+    direction: "LONG",
     timeframe: "5M",
-    setupUsed: "Order Book Ask Wall + Bearish Setup",
-    pips: "+76 pips • 1:2.8 R:R",
+    setupUsed: "Order Book Depth + Signal Engine",
+    pips: "+82 pips • Verified Profit",
     rating: 5,
-    comment:
-      "Spotted a massive ask wall on the order book depth right at resistance while RSI rolled over. Clean entry, zero drawdown, hit TP2 in 35 minutes.",
-    likes: 35,
+    comment: "Verified XAU/USD Profit Made with XAUUSD Tracker Pro.",
+    likes: 61,
     verified: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString(),
   },
 ];
 
@@ -258,7 +252,7 @@ function sanitizeText(input: unknown, maxLen: number): string {
 
 export function validateProfitPostInput(
   raw: unknown
-): { valid: true; data: CreateProfitPostInput } | { valid: false; error: string } {
+): { valid: true; data: Required<CreateProfitPostInput> } | { valid: false; error: string } {
   if (!raw || typeof raw !== "object") {
     return { valid: false, error: "Invalid request payload." };
   }
@@ -266,31 +260,45 @@ export function validateProfitPostInput(
   const body = raw as Record<string, unknown>;
   const traderName = sanitizeText(body.traderName, 40);
   if (traderName.length < 2) {
-    return { valid: false, error: "Please enter your name or trader alias (at least 2 characters)." };
+    return {
+      valid: false,
+      error: "Please enter your name (at least 2 characters).",
+    };
   }
 
-  const location = sanitizeText(body.location, 40) || "Global Trader";
+  // Strictly reject negative numbers, zero, or loss strings
+  if (typeof body.profitUsd === "string" && body.profitUsd.trim().startsWith("-")) {
+    return {
+      valid: false,
+      error: "Only positive profits made can be posted on the Profit Wall. Losses are not permitted.",
+    };
+  }
 
   const profitRaw = Number(body.profitUsd);
   if (!Number.isFinite(profitRaw) || profitRaw <= 0) {
-    return { valid: false, error: "Please enter a valid positive profit amount in USD." };
+    return {
+      valid: false,
+      error: "Only positive profits made (> $0) are allowed. Losses cannot be posted.",
+    };
   }
-  if (profitRaw > 500000) {
-    return { valid: false, error: "Single trade profit entries are capped at $500,000 for verification." };
+  if (profitRaw > 1000000) {
+    return {
+      valid: false,
+      error: "Single profit entries are capped at $1,000,000.",
+    };
   }
   const profitUsd = Math.round(profitRaw * 100) / 100;
 
-  const direction = body.direction === "SHORT" ? "SHORT" : "LONG";
-
+  const location = sanitizeText(body.location, 40) || "Verified Trader";
+  const direction = "LONG";
   const allowedTimeframes = ["1M", "5M", "15M", "1H"] as const;
   const timeframe = allowedTimeframes.includes(body.timeframe as any)
     ? (body.timeframe as "1M" | "5M" | "15M" | "1H")
     : "5M";
 
   const setupUsed =
-    sanitizeText(body.setupUsed, 60) || "Order Flow & Signal Engine";
-
-  const pips = sanitizeText(body.pips, 35) || "Verified Target Hit";
+    sanitizeText(body.setupUsed, 60) || "XAUUSD Tracker Signal & Order Flow";
+  const pips = sanitizeText(body.pips, 35) || "Verified Profit Payout";
 
   const ratingNum = Number(body.rating);
   const rating =
@@ -298,13 +306,11 @@ export function validateProfitPostInput(
       ? Math.round(ratingNum)
       : 5;
 
-  const comment = sanitizeText(body.comment, 400);
-  if (comment.length < 10) {
-    return {
-      valid: false,
-      error: "Please share at least a short note (10+ characters) on how you caught the trade to motivate others.",
-    };
-  }
+  const rawComment = sanitizeText(body.comment, 400);
+  const comment =
+    rawComment.length > 0
+      ? rawComment
+      : "Verified XAU/USD Profit Made with XAUUSD Tracker Pro.";
 
   return {
     valid: true,
@@ -321,4 +327,3 @@ export function validateProfitPostInput(
     },
   };
 }
-

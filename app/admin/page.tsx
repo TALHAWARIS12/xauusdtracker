@@ -31,6 +31,7 @@ import {
   AdminReferralTable,
   AdminReferralItem,
 } from "@/components/admin/AdminReferralTable";
+import { computeCountryBreakdown } from "@/lib/analytics/geo-intelligence";
 
 export default async function AdminPage() {
   const session = await auth();
@@ -52,36 +53,59 @@ export default async function AdminPage() {
     where: { createdAt: { gte: sevenDaysAgo } },
   });
 
-  // 2. Site Visitor & Traffic Analytics
-  const totalVisits = await prisma.siteVisit.count();
+  // 2. Site Visitor & Traffic Analytics (excluding internal account geo tags)
+  const totalVisits = await prisma.siteVisit.count({
+    where: { path: { not: "/__account_geo__" } },
+  });
   const visitsToday = await prisma.siteVisit.count({
-    where: { createdAt: { gte: oneDayAgo } },
+    where: {
+      createdAt: { gte: oneDayAgo },
+      path: { not: "/__account_geo__" },
+    },
   });
 
   const uniqueVisitorsTotalResult = await prisma.siteVisit.groupBy({
     by: ["ipHash"],
+    where: { path: { not: "/__account_geo__" } },
     _count: { id: true },
   });
   const uniqueVisitorsTotal = uniqueVisitorsTotalResult.length;
 
   const uniqueVisitorsTodayResult = await prisma.siteVisit.groupBy({
     by: ["ipHash"],
-    where: { createdAt: { gte: oneDayAgo } },
+    where: {
+      createdAt: { gte: oneDayAgo },
+      path: { not: "/__account_geo__" },
+    },
     _count: { id: true },
   });
   const uniqueVisitorsToday = uniqueVisitorsTodayResult.length;
 
   const topPagesResult = await prisma.siteVisit.groupBy({
     by: ["path"],
+    where: { path: { not: "/__account_geo__" } },
     _count: { id: true },
     orderBy: { _count: { id: "desc" } },
     take: 5,
   });
 
   const recentVisits = await prisma.siteVisit.findMany({
+    where: { path: { not: "/__account_geo__" } },
     orderBy: { createdAt: "desc" },
     take: 8,
   });
+
+  // Load explicit account geo tags recorded on registration
+  const accountGeoRows = await prisma.siteVisit.findMany({
+    where: { path: "/__account_geo__" },
+    select: { ipHash: true, userAgent: true },
+  });
+  const recordedGeoByUserId: Record<string, string> = {};
+  for (const row of accountGeoRows) {
+    if (row.ipHash && row.userAgent) {
+      recordedGeoByUserId[row.ipHash] = row.userAgent;
+    }
+  }
 
   // 3. Clearances & MRR
   const activeSubs = await prisma.subscription.count({
@@ -95,24 +119,43 @@ export default async function AdminPage() {
   const MONTHLY_PLAN_PRICE = 48; // Standard monthly tier ($48/mo)
   const estimatedMrr = cryptoSubs * MONTHLY_PLAN_PRICE;
 
-
-  // Retrieve user directory with subscriptions
+  // Retrieve user directory with subscriptions & payment history for geo attribution
   const dbUsers = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },
-    include: { subscription: true },
+    include: {
+      subscription: true,
+      payments: { select: { provider: true, currency: true } },
+    },
   });
 
-  const users: AdminUserItem[] = dbUsers.map((u) => ({
-    id: u.id,
-    email: u.email,
-    role: u.role,
-    subscriptionStatus: u.subscription?.status ?? "INACTIVE",
-    subscriptionSource: u.subscription?.source ?? "NOWPAYMENTS",
-    currentPeriodEnd: u.subscription?.currentPeriodEnd
-      ? u.subscription.currentPeriodEnd.toISOString()
-      : null,
-    createdAt: u.createdAt.toISOString(),
-  }));
+  const geoAnalytics = computeCountryBreakdown(
+    dbUsers.map((u) => ({
+      id: u.id,
+      email: u.email,
+      isPro: u.subscription?.status === "ACTIVE",
+      recordedCountryCode: recordedGeoByUserId[u.id] ?? null,
+      paymentProviders: u.payments.map((p) => p.provider),
+      paymentCurrencies: u.payments.map((p) => p.currency),
+    }))
+  );
+
+  const users: AdminUserItem[] = dbUsers.map((u) => {
+    const geo = geoAnalytics.userGeoMap[u.id];
+    return {
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      subscriptionStatus: u.subscription?.status ?? "INACTIVE",
+      subscriptionSource: u.subscription?.source ?? "NOWPAYMENTS",
+      currentPeriodEnd: u.subscription?.currentPeriodEnd
+        ? u.subscription.currentPeriodEnd.toISOString()
+        : null,
+      createdAt: u.createdAt.toISOString(),
+      countryName: geo?.name ?? "Kenya",
+      countryFlag: geo?.flag ?? "🇰🇪",
+      countryRegion: geo?.region ?? "East Africa",
+    };
+  });
 
   // Retrieve payment records
   const dbPayments = await prisma.payment.findMany({
@@ -301,6 +344,92 @@ export default async function AdminPage() {
           </div>
           <div className="text-[10px] text-terminal-subtext">
             WebSocket 1:1 Live
+          </div>
+        </div>
+      </div>
+
+      {/* Registered Accounts Geographic Origin Breakdown */}
+      <div className="bg-terminal-surface border border-terminal-border rounded-lg overflow-hidden shadow-xl">
+        <div className="bg-terminal-card px-5 py-3.5 border-b border-terminal-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <Globe className="w-4 h-4 text-terminal-gold" />
+            <span className="font-extrabold text-white tracking-wider text-xs uppercase">
+              REGISTERED ACCOUNTS BY COUNTRY — WHERE MEMBERS ARE FROM ({totalUsers.toLocaleString()} TOTAL ACCOUNTS)
+            </span>
+          </div>
+          {geoAnalytics.topCountry && (
+            <span className="text-[11px] text-terminal-gold font-bold">
+              #1 Origin: {geoAnalytics.topCountry.flag} {geoAnalytics.topCountry.name} ({geoAnalytics.topCountry.accountCount.toLocaleString()} accounts · {geoAnalytics.topCountry.percentage}%)
+            </span>
+          )}
+        </div>
+
+        <div className="p-4 sm:p-5 space-y-6">
+          {/* Regional Summary Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {geoAnalytics.regionSummary.map((reg) => (
+              <div
+                key={reg.region}
+                className="bg-terminal-black/70 border border-terminal-border rounded-lg p-3 space-y-1"
+              >
+                <span className="text-[10px] text-terminal-subtext uppercase tracking-wider block truncate">
+                  {reg.region}
+                </span>
+                <div className="text-lg font-extrabold text-white tabular-nums">
+                  {reg.count.toLocaleString()}{" "}
+                  <span className="text-xs text-terminal-gold font-bold">
+                    ({reg.percentage}%)
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Country-by-Country Progress Breakdown */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {geoAnalytics.breakdown.map((country, idx) => (
+              <div
+                key={country.code}
+                className="bg-terminal-black/50 border border-terminal-border rounded-lg p-3.5 space-y-2"
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-terminal-subtext w-5">
+                      #{idx + 1}
+                    </span>
+                    <span className="text-base">{country.flag}</span>
+                    <span className="font-extrabold text-white">
+                      {country.name}
+                    </span>
+                    <span className="text-[10px] text-terminal-subtext px-1.5 py-0.5 rounded bg-terminal-surface border border-terminal-border">
+                      {country.region}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-extrabold text-terminal-gold tabular-nums">
+                      {country.accountCount.toLocaleString()} accounts
+                    </span>{" "}
+                    <span className="text-[10px] text-terminal-subtext">
+                      ({country.percentage}%)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full bg-terminal-surface rounded-full h-2 overflow-hidden border border-terminal-border">
+                  <div
+                    className="bg-gradient-to-r from-terminal-gold to-emerald-400 h-2 rounded-full"
+                    style={{ width: `${Math.max(country.percentage, 3)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-terminal-subtext">
+                  <span>ISO Code: {country.code}</span>
+                  <span className="text-terminal-green font-bold">
+                    {country.activeProCount} Active Pro Subscribers
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

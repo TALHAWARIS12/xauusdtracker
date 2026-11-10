@@ -5,7 +5,6 @@ import {
   Star,
   CheckCircle2,
   TrendingUp,
-  TrendingDown,
   DollarSign,
   PlusCircle,
   Flame,
@@ -13,7 +12,6 @@ import {
   Award,
   Send,
   Sparkles,
-  MapPin,
   Clock,
   AlertCircle,
 } from "lucide-react";
@@ -29,8 +27,8 @@ interface ReviewsAndProfitWallProps {
   isSubscribed?: boolean;
 }
 
-const LOCAL_STORAGE_WINS_KEY = "xauusd_community_user_wins_v1";
-const LOCAL_STORAGE_LIKED_KEY = "xauusd_community_liked_ids_v1";
+const LOCAL_STORAGE_WINS_KEY = "xauusd_community_user_wins_v2";
+const LOCAL_STORAGE_LIKED_KEY = "xauusd_community_liked_ids_v2";
 
 function formatRelativeTime(isoString: string): string {
   const timestamp = new Date(isoString).getTime();
@@ -45,14 +43,16 @@ function formatRelativeTime(isoString: string): string {
   return `${diffDays}d ago`;
 }
 
-function formatUsd(amount: number): string {
+function formatBigUsd(amount: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
 }
+
+const QUICK_PROFIT_PRESETS = [500, 1250, 2500, 5000, 10000, 25000];
 
 export function ReviewsAndProfitWall({
   userEmail,
@@ -65,35 +65,26 @@ export function ReviewsAndProfitWall({
 
   // Profit wall state
   const [posts, setPosts] = useState<ProfitPost[]>(SEEDED_PROFIT_POSTS);
-  const [totalCommunityProfit, setTotalCommunityProfit] = useState<number>(148645);
-  const [totalWinsCount, setTotalWinsCount] = useState<number>(318);
+  const [totalCommunityProfit, setTotalCommunityProfit] =
+    useState<number>(1486530);
+  const [totalWinsCount, setTotalWinsCount] = useState<number>(2846);
   const [likedIds, setLikedIds] = useState<Record<string, boolean>>({});
 
-  // Form state
+  // Form state: ONLY Name and Profit Made
   const defaultAlias = useMemo(() => {
     if (!userEmail) return "";
     const prefix = userEmail.split("@")[0] || "";
-    return prefix.charAt(0).toUpperCase() + prefix.slice(1, 14);
+    return prefix.charAt(0).toUpperCase() + prefix.slice(1, 16);
   }, [userEmail]);
 
   const [showForm, setShowForm] = useState<boolean>(true);
   const [traderName, setTraderName] = useState<string>(defaultAlias);
-  const [location, setLocation] = useState<string>("");
   const [profitUsd, setProfitUsd] = useState<string>("");
-  const [direction, setDirection] = useState<"LONG" | "SHORT">("LONG");
-  const [timeframe, setTimeframe] = useState<"1M" | "5M" | "15M" | "1H">("5M");
-  const [setupUsed, setSetupUsed] = useState<string>(
-    "Liquidity Pool Sweep + Volume Delta"
-  );
-  const [pips, setPips] = useState<string>("");
-  const [rating, setRating] = useState<number>(5);
-  const [comment, setComment] = useState<string>("");
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
-  // Sync initial name if userEmail loads
   useEffect(() => {
     if (defaultAlias && !traderName) {
       setTraderName(defaultAlias);
@@ -118,7 +109,7 @@ export function ReviewsAndProfitWall({
         if (rawLocal) {
           const parsed = JSON.parse(rawLocal);
           if (Array.isArray(parsed)) {
-            localPosts = parsed;
+            localPosts = parsed.filter((p) => Number(p?.profitUsd) > 0);
           }
         }
       } catch {}
@@ -128,17 +119,22 @@ export function ReviewsAndProfitWall({
         if (res.ok) {
           const data = await res.json();
           if (active && Array.isArray(data.posts)) {
-            const serverIds = new Set(data.posts.map((p: ProfitPost) => p.id));
+            const validServerPosts = data.posts.filter(
+              (p: ProfitPost) => Number(p?.profitUsd) > 0
+            );
+            const serverIds = new Set(validServerPosts.map((p: ProfitPost) => p.id));
             const merged = [
               ...localPosts.filter((p) => !serverIds.has(p.id)),
-              ...data.posts,
+              ...validServerPosts,
             ];
             setPosts(merged);
             if (data.stats?.totalProfitUsd) {
               const extraLocalProfit = localPosts
                 .filter((p) => !serverIds.has(p.id))
                 .reduce((acc, p) => acc + (Number(p.profitUsd) || 0), 0);
-              setTotalCommunityProfit(data.stats.totalProfitUsd + extraLocalProfit);
+              setTotalCommunityProfit(
+                data.stats.totalProfitUsd + extraLocalProfit
+              );
             }
             if (data.stats?.totalWinsCount) {
               setTotalWinsCount(
@@ -169,23 +165,32 @@ export function ReviewsAndProfitWall({
     return GENERATED_REVIEWS.filter((r) => r.category === reviewFilter);
   }, [reviewFilter]);
 
+  function handleProfitInputChange(val: string) {
+    // Strictly strip minus signs so losses can never be entered
+    const sanitized = val.replace(/-/g, "");
+    setProfitUsd(sanitized);
+    if (formError) setFormError(null);
+  }
+
   async function handleSubmitProfit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
     setFormSuccess(null);
 
-    const numericProfit = Number(profitUsd);
     if (!traderName || traderName.trim().length < 2) {
-      setFormError("Please enter your name or trader alias (at least 2 characters).");
+      setFormError("Please enter your name (at least 2 characters).");
       return;
     }
+
+    if (profitUsd.trim().startsWith("-")) {
+      setFormError("Only profits made are allowed. Losses cannot be posted.");
+      return;
+    }
+
+    const numericProfit = Number(profitUsd);
     if (!Number.isFinite(numericProfit) || numericProfit <= 0) {
-      setFormError("Please enter a valid profit amount in USD (e.g. 450).");
-      return;
-    }
-    if (!comment || comment.trim().length < 10) {
       setFormError(
-        "Please write a short note (at least 10 characters) on how you made this profit to motivate new members."
+        "Please enter a positive profit amount in USD. Losses are not allowed."
       );
       return;
     }
@@ -195,14 +200,7 @@ export function ReviewsAndProfitWall({
     try {
       const payload = {
         traderName: traderName.trim(),
-        location: location.trim() || "Global Trader",
         profitUsd: numericProfit,
-        direction,
-        timeframe,
-        setupUsed,
-        pips: pips.trim() || "Verified Target Hit",
-        rating,
-        comment: comment.trim(),
       };
 
       const res = await fetch("/api/community/wins", {
@@ -214,14 +212,15 @@ export function ReviewsAndProfitWall({
       const result = await res.json();
 
       if (!res.ok) {
-        setFormError(result.error || "Could not post your profit. Please check your entries.");
+        setFormError(
+          result.error || "Could not post your profit. Please check your entry."
+        );
         setIsSubmitting(false);
         return;
       }
 
       const createdPost: ProfitPost = result.post;
 
-      // Save to localStorage for instant persistence
       try {
         const rawLocal = localStorage.getItem(LOCAL_STORAGE_WINS_KEY);
         const existingLocal: ProfitPost[] = rawLocal ? JSON.parse(rawLocal) : [];
@@ -229,19 +228,21 @@ export function ReviewsAndProfitWall({
         localStorage.setItem(LOCAL_STORAGE_WINS_KEY, JSON.stringify(updatedLocal));
       } catch {}
 
-      setPosts((prev) => [createdPost, ...prev.filter((p) => p.id !== createdPost.id)]);
-      setTotalCommunityProfit((prev) => Math.round((prev + numericProfit) * 100) / 100);
+      setPosts((prev) => [
+        createdPost,
+        ...prev.filter((p) => p.id !== createdPost.id),
+      ]);
+      setTotalCommunityProfit(
+        (prev) => Math.round((prev + numericProfit) * 100) / 100
+      );
       setTotalWinsCount((prev) => prev + 1);
 
-      // Reset fields
       setProfitUsd("");
-      setPips("");
-      setComment("");
       setFormSuccess(
-        `Congratulations! Your +${formatUsd(numericProfit)} profit post is now live on the community wall.`
+        `Congratulations ${traderName.trim()}! Your +${formatBigUsd(numericProfit)} profit is now live on the Profit Wall.`
       );
     } catch {
-      setFormError("Network error while posting your win. Please try again.");
+      setFormError("Network error while posting your profit. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -289,13 +290,20 @@ export function ReviewsAndProfitWall({
         <div className="bg-ink-900 border border-white/[0.08] rounded-2xl p-6 sm:p-7 flex flex-col lg:flex-row items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
             <div className="flex flex-col items-center justify-center bg-ink-850 border border-gold-400/25 rounded-xl px-5 py-3">
-              <span className="font-display text-3xl font-extrabold text-white">4.9</span>
+              <span className="font-display text-3xl font-extrabold text-white">
+                4.9
+              </span>
               <div className="flex items-center gap-0.5 text-gold-400 mt-1">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-3.5 h-3.5 fill-gold-400 text-gold-400" />
+                  <Star
+                    key={i}
+                    className="w-3.5 h-3.5 fill-gold-400 text-gold-400"
+                  />
                 ))}
               </div>
-              <span className="text-[11px] text-slate-400 mt-1">Out of 5.0</span>
+              <span className="text-[11px] text-slate-400 mt-1">
+                Out of 5.0
+              </span>
             </div>
 
             <div className="space-y-1">
@@ -343,25 +351,25 @@ export function ReviewsAndProfitWall({
               className="bg-ink-900 border border-white/[0.08] hover:border-gold-400/30 rounded-2xl p-6 flex flex-col justify-between space-y-5 transition duration-200 shadow-card"
             >
               <div className="space-y-4">
-                {/* Stars + Highlight Metric */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1 text-gold-400">
                     {[...Array(review.rating)].map((_, idx) => (
-                      <Star key={idx} className="w-4 h-4 fill-gold-400 text-gold-400" />
+                      <Star
+                        key={idx}
+                        className="w-4 h-4 fill-gold-400 text-gold-400"
+                      />
                     ))}
                   </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-bull-500/10 border border-bull-400/25 px-2.5 py-1 text-[11px] font-semibold text-bull-300">
-                    <TrendingUp className="w-3 h-3" />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-bull-500/15 border border-bull-400/30 px-3 py-1 text-xs font-mono font-bold text-bull-300">
+                    <TrendingUp className="w-3.5 h-3.5" />
                     {review.highlightMetric}
                   </span>
                 </div>
 
-                {/* Comment */}
                 <p className="text-sm text-slate-300 leading-relaxed">
                   &ldquo;{review.comment}&rdquo;
                 </p>
 
-                {/* Feature Used Pill */}
                 <div className="pt-1">
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-ink-850 border border-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-gold-300">
                     <Sparkles className="w-3 h-3 text-gold-400" />
@@ -370,7 +378,6 @@ export function ReviewsAndProfitWall({
                 </div>
               </div>
 
-              {/* Author Footer */}
               <div className="pt-4 border-t border-white/[0.06] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-ink-850 border border-gold-400/30 flex items-center justify-center font-display text-xs font-bold text-gold-300 shrink-0">
@@ -403,22 +410,22 @@ export function ReviewsAndProfitWall({
       </section>
 
       {/* =====================================================================
-          PART 2: LIVE COMMUNITY PROFIT WALL & POST YOUR WIN SECTION
+          PART 2: LIVE COMMUNITY PROFIT WALL (ONLY NAME & PROFIT MADE, BIG NUMBERS)
       ===================================================================== */}
       <section id="wins" className="container-app space-y-10 scroll-mt-20">
-        {/* Header & Live Motivational Counter Banner */}
-        <div className="bg-ink-900 border border-gold-400/25 rounded-2xl p-6 sm:p-8 lg:p-10 shadow-card space-y-8">
+        {/* Header & Massive Live Profit Counter Banner */}
+        <div className="bg-ink-900 border border-gold-400/30 rounded-2xl p-6 sm:p-8 lg:p-10 shadow-card space-y-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-3 max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full bg-bull-500/10 border border-bull-400/30 px-3.5 py-1 text-xs font-semibold text-bull-300">
+              <div className="inline-flex items-center gap-2 rounded-full bg-bull-500/15 border border-bull-400/30 px-3.5 py-1 text-xs font-semibold text-bull-300">
                 <span className="h-2 w-2 rounded-full bg-bull-400 animate-pulse" />
-                <span>LIVE MEMBER PROFIT WALL • REAL TRADER PAYOUTS</span>
+                <span>VERIFIED MEMBER PROFITS • 100% WINNERS WALL</span>
               </div>
-              <h2 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
-                Money Made by Our Community
+              <h2 className="font-display text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+                Money Made by Our Members
               </h2>
               <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-                Did XAUUSD Tracker help you catch a profitable gold move today? Post the money you made below to celebrate your execution and motivate new members!
+                Real profits posted by XAUUSD Tracker members. Enter your name and the profit you made below to motivate new traders!
               </p>
             </div>
 
@@ -427,78 +434,71 @@ export function ReviewsAndProfitWall({
                 type="button"
                 onClick={() => setShowForm((prev) => !prev)}
                 id="toggle-post-profit-btn"
-                className="btn-primary px-6 py-3.5 text-sm font-semibold shadow-gold cursor-pointer"
+                className="btn-primary px-7 py-4 text-sm font-bold shadow-gold cursor-pointer"
               >
                 <PlusCircle className="w-4 h-4" />
-                <span>{showForm ? "Hide Profit Form" : "Post Your Profit ($)" }</span>
+                <span>{showForm ? "Hide Profit Form" : "Post Your Profit ($)"}</span>
               </button>
             </div>
           </div>
 
-          {/* Live Telemetry Counter Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            <div className="bg-ink-850 border border-white/[0.08] rounded-xl p-4 flex items-center gap-4">
-              <div className="h-11 w-11 rounded-xl bg-bull-500/15 border border-bull-400/30 flex items-center justify-center text-bull-400 shrink-0">
-                <DollarSign className="w-6 h-6" />
+          {/* BIG NUMBERS: High-Impact Telemetry Counter Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 pt-2">
+            <div className="lg:col-span-2 bg-ink-950 border-2 border-bull-400/40 rounded-2xl p-6 sm:p-7 flex flex-col justify-center space-y-2 shadow-[0_0_40px_-12px_rgba(52,211,153,0.25)]">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-bull-300">
+                <DollarSign className="w-4 h-4 text-bull-400" />
+                <span>TOTAL COMMUNITY VERIFIED PROFITS MADE</span>
               </div>
-              <div>
-                <span className="text-xs font-medium text-slate-400 block">
-                  Community Reported Profits
-                </span>
-                <span
-                  className="font-mono text-xl sm:text-2xl font-bold text-bull-400"
-                  id="total-community-profit"
-                >
-                  +{formatUsd(totalCommunityProfit)}
-                </span>
+              <div
+                className="font-mono text-3xl sm:text-5xl lg:text-6xl font-extrabold text-bull-400 tracking-tight tabular-nums"
+                id="total-community-profit"
+              >
+                +{formatBigUsd(totalCommunityProfit)}
               </div>
+              <p className="text-xs text-slate-400">
+                Live cumulative XAU/USD profits reported by verified members worldwide
+              </p>
             </div>
 
-            <div className="bg-ink-850 border border-white/[0.08] rounded-xl p-4 flex items-center gap-4">
-              <div className="h-11 w-11 rounded-xl bg-gold-400/15 border border-gold-400/30 flex items-center justify-center text-gold-300 shrink-0">
-                <Award className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-medium text-slate-400 block">
-                  Verified Profitable Posts
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+              <div className="bg-ink-850 border border-gold-400/30 rounded-2xl p-5 flex flex-col justify-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gold-300 flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-gold-400" />
+                  PROFITABLE PAYOUTS POSTED
                 </span>
-                <span className="font-mono text-xl sm:text-2xl font-bold text-white">
-                  {totalWinsCount} Wins Shared
+                <span className="font-mono text-3xl sm:text-4xl font-extrabold text-white mt-1 tabular-nums">
+                  {totalWinsCount.toLocaleString()}+
                 </span>
               </div>
-            </div>
 
-            <div className="bg-ink-850 border border-white/[0.08] rounded-xl p-4 flex items-center gap-4">
-              <div className="h-11 w-11 rounded-xl bg-bull-500/15 border border-bull-400/30 flex items-center justify-center text-bull-400 shrink-0">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-medium text-slate-400 block">
-                  Avg. Community Risk:Reward
+              <div className="bg-ink-850 border border-bull-400/30 rounded-2xl p-5 flex flex-col justify-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-bull-300 flex items-center gap-1.5">
+                  <TrendingUp className="w-4 h-4 text-bull-400" />
+                  TOP SINGLE MEMBER PROFIT
                 </span>
-                <span className="font-mono text-xl sm:text-2xl font-bold text-white">
-                  1 : 3.1 R:R
+                <span className="font-mono text-3xl sm:text-4xl font-extrabold text-bull-400 mt-1 tabular-nums">
+                  +$24,600.00
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Interactive Post Your Profit Form */}
+          {/* Simplified Form: ONLY Name & Profit Made (No Losses Allowed) */}
           {showForm && (
-            <div className="bg-ink-950 border border-white/10 rounded-2xl p-6 sm:p-7 space-y-6">
+            <div className="bg-ink-950 border border-white/10 rounded-2xl p-6 sm:p-7 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.08] pb-4">
                 <div>
                   <h3 className="font-display text-lg font-bold text-white flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-gold-400" />
-                    <span>Share the Money You Made from XAUUSD Tracker</span>
+                    <span>Post Your Profit Made (Winners Only)</span>
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Your win will appear immediately on the live profit wall to inspire fellow traders.
+                    Enter only your name and the profit you made in USD to inspire new members.
                   </p>
                 </div>
                 {isSubscribed && (
                   <span className="badge-pro self-start sm:self-center">
-                    Posting as Verified Pro Trader
+                    Verified Pro Member
                   </span>
                 )}
               </div>
@@ -517,15 +517,19 @@ export function ReviewsAndProfitWall({
                 </div>
               )}
 
-              <form onSubmit={handleSubmitProfit} className="space-y-5" id="post-profit-form">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Trader Name */}
-                  <div>
+              <form
+                onSubmit={handleSubmitProfit}
+                className="space-y-4"
+                id="post-profit-form"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                  {/* Field 1: Trader Name ONLY */}
+                  <div className="md:col-span-5">
                     <label
                       htmlFor="win-trader-name"
-                      className="block text-xs font-medium text-slate-300 mb-1.5"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2"
                     >
-                      Your Name / Trader Alias *
+                      1. Your Name *
                     </label>
                     <input
                       id="win-trader-name"
@@ -534,325 +538,141 @@ export function ReviewsAndProfitWall({
                       maxLength={40}
                       value={traderName}
                       onChange={(e) => setTraderName(e.target.value)}
-                      placeholder="e.g. Alex M."
-                      className="w-full bg-ink-850 border border-white/10 focus:border-gold-400 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition"
+                      placeholder="Enter your name (e.g. Alex M.)"
+                      className="w-full bg-ink-850 border border-white/15 focus:border-gold-400 rounded-xl px-4 py-3.5 text-base font-semibold text-white placeholder-slate-500 outline-none transition"
                     />
                   </div>
 
-                  {/* Location */}
-                  <div>
-                    <label
-                      htmlFor="win-location"
-                      className="block text-xs font-medium text-slate-300 mb-1.5"
-                    >
-                      City / Country
-                    </label>
-                    <input
-                      id="win-location"
-                      type="text"
-                      maxLength={40}
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="e.g. London, UK / Nairobi"
-                      className="w-full bg-ink-850 border border-white/10 focus:border-gold-400 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition"
-                    />
-                  </div>
-
-                  {/* Profit Made ($ USD) */}
-                  <div>
+                  {/* Field 2: Profit Made ($ USD) ONLY — Strictly Positive */}
+                  <div className="md:col-span-4">
                     <label
                       htmlFor="win-profit-usd"
-                      className="block text-xs font-medium text-bull-300 mb-1.5"
+                      className="block text-xs font-semibold uppercase tracking-wider text-bull-300 mb-2"
                     >
-                      Money Made ($ USD) *
+                      2. Profit Made ($ USD) *
                     </label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-bull-400 font-mono font-bold">
-                        $
+                      <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-bull-400 font-mono text-xl font-extrabold">
+                        +$
                       </span>
                       <input
                         id="win-profit-usd"
                         type="number"
                         step="any"
                         min="1"
-                        max="500000"
+                        max="1000000"
                         required
                         value={profitUsd}
-                        onChange={(e) => setProfitUsd(e.target.value)}
-                        placeholder="450.00"
-                        className="w-full bg-ink-850 border border-bull-400/30 focus:border-bull-400 rounded-xl pl-8 pr-3.5 py-2.5 text-sm font-mono font-bold text-white placeholder-slate-500 outline-none transition"
+                        onChange={(e) => handleProfitInputChange(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "-" || e.key === "e") {
+                            e.preventDefault();
+                          }
+                        }}
+                        placeholder="2,500.00"
+                        className="w-full bg-ink-850 border-2 border-bull-400/40 focus:border-bull-400 rounded-xl pl-12 pr-4 py-3.5 text-lg font-mono font-extrabold text-bull-400 placeholder-slate-600 outline-none transition"
                       />
                     </div>
                   </div>
 
-                  {/* Pips / R:R */}
-                  <div>
-                    <label
-                      htmlFor="win-pips"
-                      className="block text-xs font-medium text-slate-300 mb-1.5"
+                  {/* Submit Button */}
+                  <div className="md:col-span-3">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      id="submit-profit-post-btn"
+                      className="w-full py-4 px-6 bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-300 hover:to-gold-400 text-ink-950 font-extrabold text-sm rounded-xl shadow-gold transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                     >
-                      Pips or R:R Captured
-                    </label>
-                    <input
-                      id="win-pips"
-                      type="text"
-                      maxLength={35}
-                      value={pips}
-                      onChange={(e) => setPips(e.target.value)}
-                      placeholder="e.g. +65 pips • 1:3 R:R"
-                      className="w-full bg-ink-850 border border-white/10 focus:border-gold-400 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition"
-                    />
+                      <Send className="w-4 h-4" />
+                      <span>
+                        {isSubmitting ? "Posting..." : "Post My Profit"}
+                      </span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Quick Profit Chips + Direction + Timeframe + Setup */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Direction */}
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                      Trade Direction
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setDirection("LONG")}
-                        className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition cursor-pointer ${
-                          direction === "LONG"
-                            ? "bg-bull-500/20 border-bull-400 text-bull-300"
-                            : "bg-ink-850 border-white/10 text-slate-400 hover:text-white"
-                        }`}
-                      >
-                        <TrendingUp className="w-3.5 h-3.5" />
-                        <span>LONG (BUY)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDirection("SHORT")}
-                        className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition cursor-pointer ${
-                          direction === "SHORT"
-                            ? "bg-bear-500/20 border-bear-400 text-bear-300"
-                            : "bg-ink-850 border-white/10 text-slate-400 hover:text-white"
-                        }`}
-                      >
-                        <TrendingDown className="w-3.5 h-3.5" />
-                        <span>SHORT (SELL)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Timeframe */}
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                      Timeframe
-                    </label>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {(["1M", "5M", "15M", "1H"] as const).map((tf) => (
-                        <button
-                          key={tf}
-                          type="button"
-                          onClick={() => setTimeframe(tf)}
-                          className={`py-2.5 rounded-xl text-xs font-mono font-bold border transition cursor-pointer ${
-                            timeframe === tf
-                              ? "bg-gold-400 text-ink-950 border-gold-400"
-                              : "bg-ink-850 border-white/10 text-slate-300 hover:border-white/20"
-                          }`}
-                        >
-                          {tf}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Setup Used */}
-                  <div>
-                    <label
-                      htmlFor="win-setup-used"
-                      className="block text-xs font-medium text-slate-300 mb-1.5"
+                {/* Quick Big-Number Profit Presets */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-xs text-slate-400 mr-1">
+                    Quick select profit:
+                  </span>
+                  {QUICK_PROFIT_PRESETS.map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => handleProfitInputChange(String(amt))}
+                      className="px-3 py-1.5 rounded-lg bg-bull-500/10 hover:bg-bull-500/20 border border-bull-400/30 font-mono text-xs font-bold text-bull-300 transition cursor-pointer"
                     >
-                      Dashboard Feature Used
-                    </label>
-                    <select
-                      id="win-setup-used"
-                      value={setupUsed}
-                      onChange={(e) => setSetupUsed(e.target.value)}
-                      className="w-full bg-ink-850 border border-white/10 focus:border-gold-400 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none transition"
-                    >
-                      <option value="Liquidity Pool Sweep + Volume Delta">
-                        Liquidity Pool Sweep + Volume Delta
-                      </option>
-                      <option value="Rule-Based Signal Engine">
-                        Rule-Based Signal Engine
-                      </option>
-                      <option value="Buyer vs. Seller Order Flow">
-                        Buyer vs. Seller Order Flow
-                      </option>
-                      <option value="London–NY Overlap Breakout">
-                        London–NY Overlap Breakout
-                      </option>
-                      <option value="Position Calculator + VWAP Bounce">
-                        Position Calculator + VWAP Bounce
-                      </option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Comment & Rating */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label
-                      htmlFor="win-comment"
-                      className="block text-xs font-medium text-slate-300"
-                    >
-                      How did XAUUSD Tracker help you make this profit? (Motivate new members) *
-                    </label>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-slate-400 mr-1">Rating:</span>
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setRating(star)}
-                          className="cursor-pointer"
-                          aria-label={`Rate ${star} stars`}
-                        >
-                          <Star
-                            className={`w-4 h-4 ${
-                              star <= rating
-                                ? "fill-gold-400 text-gold-400"
-                                : "text-slate-600"
-                            }`}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <textarea
-                    id="win-comment"
-                    rows={3}
-                    required
-                    maxLength={400}
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    placeholder="Example: Caught a +$450 long on XAU/USD during the NY open after the 5M Liquidity Pool flagged a stop-hunt at $4,125 and buyer volume hit 67%..."
-                    className="w-full bg-ink-850 border border-white/10 focus:border-gold-400 rounded-xl p-3.5 text-sm text-white placeholder-slate-500 outline-none transition"
-                  />
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1">
-                  <p className="text-xs text-slate-400">
-                    <ShieldCheck className="w-3.5 h-3.5 text-bull-400 inline mr-1.5" />
-                    Posted directly to the live XAUUSD Tracker Community Profit Wall.
-                  </p>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    id="submit-profit-post-btn"
-                    className="w-full sm:w-auto px-7 py-3 bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-300 hover:to-gold-400 text-ink-950 font-semibold text-sm rounded-xl shadow-gold transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Send className="w-4 h-4" />
-                    <span>{isSubmitting ? "Posting Win..." : "Post My Profit to Wall"}</span>
-                  </button>
+                      +${amt.toLocaleString()}
+                    </button>
+                  ))}
                 </div>
               </form>
             </div>
           )}
         </div>
 
-        {/* Live Profit Cards Grid */}
+        {/* Live Profit Cards Grid — Big Profit Numbers & Name Only */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.map((post) => {
             const isLiked = Boolean(likedIds[post.id]);
             return (
               <div
                 key={post.id}
-                className="bg-ink-900 border border-white/[0.08] hover:border-bull-400/30 rounded-2xl p-6 flex flex-col justify-between space-y-5 transition duration-200 shadow-card"
+                className="bg-ink-900 border border-bull-400/25 hover:border-bull-400/50 rounded-2xl p-6 flex flex-col justify-between space-y-5 transition duration-200 shadow-card"
               >
-                <div className="space-y-4">
-                  {/* Top Profit Amount + Direction Badge */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="bg-bull-500/15 border border-bull-400/30 rounded-xl px-3.5 py-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-bull-300 block">
-                        VERIFIED PROFIT MADE
-                      </span>
-                      <span className="font-mono text-2xl font-extrabold text-bull-400">
-                        +{formatUsd(post.profitUsd)}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold ${
-                          post.direction === "LONG"
-                            ? "bg-bull-500/15 text-bull-300 border border-bull-400/25"
-                            : "bg-bear-500/15 text-bear-300 border border-bear-400/25"
-                        }`}
-                      >
-                        {post.direction === "LONG" ? (
-                          <TrendingUp className="w-3.5 h-3.5" />
-                        ) : (
-                          <TrendingDown className="w-3.5 h-3.5" />
-                        )}
-                        {post.direction} XAU/USD ({post.timeframe})
-                      </span>
-                      <span className="text-[11px] font-mono text-gold-300">
-                        {post.pips}
-                      </span>
-                    </div>
+                {/* Big Profit Display Box */}
+                <div className="bg-ink-950 border border-bull-400/30 rounded-2xl p-5 text-center space-y-1.5 shadow-[0_0_25px_-10px_rgba(52,211,153,0.2)]">
+                  <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-bull-300">
+                    <TrendingUp className="w-3.5 h-3.5 text-bull-400" />
+                    <span>VERIFIED PROFIT MADE</span>
                   </div>
-
-                  {/* Setup Used Tag */}
-                  <div className="flex items-center justify-between text-xs bg-ink-850 border border-white/[0.06] rounded-lg px-3 py-2">
-                    <span className="text-slate-400">Setup:</span>
-                    <span className="font-medium text-white truncate ml-2">
-                      {post.setupUsed}
-                    </span>
+                  <div className="font-mono text-3xl sm:text-4xl font-extrabold text-bull-400 tracking-tight tabular-nums">
+                    +{formatBigUsd(post.profitUsd)}
                   </div>
-
-                  {/* Trader's Story */}
-                  <p className="text-sm text-slate-300 leading-relaxed">
-                    &ldquo;{post.comment}&rdquo;
-                  </p>
                 </div>
 
-                {/* Bottom Trader Info & Motivate Button */}
-                <div className="pt-4 border-t border-white/[0.06] flex items-center justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-semibold text-white">
-                        {post.traderName}
-                      </span>
-                      {post.verified && (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-bull-400 shrink-0" />
-                      )}
-                      <span className="text-[11px] text-gold-300 bg-gold-400/10 border border-gold-400/20 rounded px-1.5 py-0.5">
-                        {post.badge}
-                      </span>
+                {/* Trader Name & Celebrate Action */}
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-gold-400/15 border border-gold-400/30 flex items-center justify-center font-display text-sm font-extrabold text-gold-300 shrink-0">
+                      {post.traderName.slice(0, 1).toUpperCase()}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-slate-500" />
-                        {post.location}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-slate-500">
-                        <Clock className="w-3 h-3" />
-                        {formatRelativeTime(post.createdAt)}
-                      </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-base font-bold text-white truncate">
+                          {post.traderName}
+                        </span>
+                        <CheckCircle2 className="w-4 h-4 text-bull-400 shrink-0" />
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <span className="text-gold-300 font-medium">
+                          {post.badge}
+                        </span>
+                        <span>•</span>
+                        <span className="inline-flex items-center gap-1 text-slate-500">
+                          <Clock className="w-3 h-3" />
+                          {formatRelativeTime(post.createdAt)}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => handleLikePost(post.id)}
-                    className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold border transition cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold border transition cursor-pointer shrink-0 ${
                       isLiked
                         ? "bg-gold-400/20 border-gold-400/40 text-gold-300"
                         : "bg-ink-850 border-white/10 text-slate-300 hover:border-gold-400/30 hover:text-white"
                     }`}
-                    title="Celebrate this trader's win"
+                    title="Celebrate this profit"
                   >
                     <Flame
-                      className={`w-3.5 h-3.5 ${
-                        isLiked ? "fill-gold-400 text-gold-400" : "text-gold-400"
+                      className={`w-4 h-4 ${
+                        isLiked
+                          ? "fill-gold-400 text-gold-400"
+                          : "text-gold-400"
                       }`}
                     />
                     <span>{post.likes}</span>
@@ -866,4 +686,3 @@ export function ReviewsAndProfitWall({
     </div>
   );
 }
-

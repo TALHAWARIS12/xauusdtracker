@@ -5,7 +5,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signIn, signOut } from "@/auth";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { resolveCountryCodeFromRequest } from "@/lib/analytics/geo-intelligence";
 
 const registerSchema = z
   .object({
@@ -90,7 +91,7 @@ export async function registerUser(
       }
     }
 
-    await prisma.user.create({
+    const createdUser = await prisma.user.create({
       data: {
         email: normalizedEmail,
         passwordHash,
@@ -103,6 +104,24 @@ export async function registerUser(
         },
       },
     });
+
+    // Record account origin country from Vercel IP headers or client timezone
+    try {
+      const reqHeaders = await headers();
+      const rawTimezone = formData.get("timezone");
+      const countryCode = resolveCountryCodeFromRequest(
+        reqHeaders,
+        typeof rawTimezone === "string" ? rawTimezone : null
+      );
+      await prisma.siteVisit.create({
+        data: {
+          path: "/__account_geo__",
+          ipHash: createdUser.id,
+          userAgent: countryCode,
+          referrer: normalizedEmail,
+        },
+      });
+    } catch {}
 
     // Clear any leftover test cookies from previous browser sessions
     try {

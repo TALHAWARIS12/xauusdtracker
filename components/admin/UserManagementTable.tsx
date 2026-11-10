@@ -12,6 +12,9 @@ export interface AdminUserItem {
   subscriptionSource: string;
   currentPeriodEnd: string | null;
   createdAt: string;
+  countryName?: string;
+  countryFlag?: string;
+  countryRegion?: string;
 }
 
 interface UserManagementTableProps {
@@ -28,10 +31,13 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
 
   // Filtered users
   const filteredUsers = useMemo(() => {
+    const q = searchQuery.toLowerCase();
     return users.filter((u) => {
       const matchesSearch =
-        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.id.toLowerCase().includes(searchQuery.toLowerCase());
+        u.email.toLowerCase().includes(q) ||
+        u.id.toLowerCase().includes(q) ||
+        (u.countryName && u.countryName.toLowerCase().includes(q)) ||
+        (u.countryRegion && u.countryRegion.toLowerCase().includes(q));
 
       if (!matchesSearch) return false;
 
@@ -170,6 +176,7 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
           <thead>
             <tr className="text-terminal-subtext border-b border-terminal-border text-[11px] uppercase tracking-wider">
               <th className="pb-3 px-3">Email & UID</th>
+              <th className="pb-3 px-3">Country / Origin</th>
               <th className="pb-3 px-3">Role</th>
               <th className="pb-3 px-3">Status</th>
               <th className="pb-3 px-3">Source</th>
@@ -180,7 +187,7 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
           <tbody className="divide-y divide-terminal-border/40 text-xs">
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-terminal-subtext">
+                <td colSpan={7} className="py-8 text-center text-terminal-subtext">
                   No operators match the current search / filter criteria.
                 </td>
               </tr>
@@ -199,6 +206,19 @@ export function UserManagementTable({ users }: UserManagementTableProps) {
                         <span>{u.email}</span>
                         <span className="text-[10px] text-terminal-subtext font-normal">
                           UID: {u.id.slice(0, 14)}...
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Country / Origin */}
+                    <td className="py-3 px-3">
+                      <div className="flex flex-col">
+                        <span className="text-white font-semibold flex items-center gap-1.5">
+                          <span>{u.countryFlag || "🌍"}</span>
+                          <span>{u.countryName || "Global"}</span>
+                        </span>
+                        <span className="text-[10px] text-terminal-subtext">
+                          {u.countryRegion || "International"}
                         </span>
                       </div>
                     </td>
