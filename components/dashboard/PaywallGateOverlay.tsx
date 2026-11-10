@@ -57,7 +57,7 @@ export function PaywallGateOverlay({
             <ArrowRight className="h-4 w-4" />
           </Link>
           <p className="mt-2 text-[11px] text-slate-400">
-            Instant activation · Cards & Crypto accepted · From $3/day
+            Instant activation · Cards & Crypto accepted · Cancel anytime
           </p>
         </div>
       </div>

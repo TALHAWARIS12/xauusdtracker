@@ -173,7 +173,7 @@ export default async function AccountPage() {
                 className="btn-primary w-full py-2.5 text-xs font-semibold shadow-gold"
               >
                 <Zap className="h-4 w-4" />
-                <span>Upgrade to Pro (from $3/day)</span>
+                <span>Upgrade to Pro</span>
               </Link>
             ) : (
               <p className="text-[11px] text-slate-400 text-center">

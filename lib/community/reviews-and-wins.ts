@@ -85,11 +85,11 @@ export const GENERATED_REVIEWS: TraderReview[] = [
     tierBadge: "Pro Monthly Member",
     rating: 5,
     dateAgo: "1 week ago",
-    highlightMetric: "$3 Trial → $1,450 Profit",
+    highlightMetric: "+$1,450 First Week",
     category: "scalper",
     featureUsed: "Rule-Based Signal Engine",
     comment:
-      "I started with the $3 Daily Access pass just to test the 1M and 5M signal engine. On my very first London session, the EMA(20/50) + RSI confluence setup triggered a buy that made me $280. Upgraded to Monthly immediately and haven't looked back.",
+      "I started with the Pro Monthly pass to test the 1M and 5M signal engine. On my very first London session, the EMA(20/50) + RSI confluence setup triggered a buy that made me $280. It paid for itself within two hours and I haven't looked back.",
     verified: true,
   },
   {
@@ -172,7 +172,7 @@ export const SEEDED_PROFIT_POSTS: ProfitPost[] = [
     pips: "+54 pips • 1:2.5 R:R",
     rating: 5,
     comment:
-      "Started with the $3 Daily Pass, made $190 on day one, upgraded to Monthly and just locked in $645 during the New York open breakout. Trust the invalidation levels!",
+      "Tested the 1M signal engine on day one, locked in +54 pips during the New York open breakout and banked $645. Trust the invalidation levels!",
     likes: 39,
     verified: true,
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 9).toISOString(),

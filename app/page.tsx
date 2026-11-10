@@ -68,7 +68,7 @@ export default async function HomePage() {
               id="hero-view-plans-btn"
             >
               <Sparkles className="h-4 w-4 text-gold-300" />
-              <span>View Pricing Plans (from $3)</span>
+              <span>View Pricing Plans</span>
             </Link>
           </div>
 
