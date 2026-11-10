@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Terminal, Shield, Mail, ArrowRight, Check, Copy, ExternalLink, KeyRound, AlertCircle } from "lucide-react";
+import { Mail, ArrowRight, Check, Copy, ExternalLink, ShieldCheck, HelpCircle } from "lucide-react";
+import { BrandLogo } from "@/components/layout/BrandLogo";
 
 const SUPPORT_EMAIL = "Support@xauusdtracker.com";
 
@@ -10,8 +11,8 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const resetSubject = `Password Reset Request - ${email.trim() || "Operator Account"}`;
-  const resetBody = `Hi XAUUSD Tracker Support,\n\nI forgot my security passkey for my operator account. Please reset my credentials so I can log in to my Pro terminal.\n\nAccount Email: ${email.trim() || "[Enter your account email here]"}\nTimestamp: ${new Date().toISOString()}`;
+  const resetSubject = `Password Reset Request - ${email.trim() || "Account"}`;
+  const resetBody = `Hi XAUUSD Tracker Support,\n\nI forgot my password for my account. Please reset my credentials so I can log in to my trading dashboard.\n\nAccount Email: ${email.trim() || "[Enter your account email here]"}\nTimestamp: ${new Date().toISOString()}`;
 
   const gmailComposeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
     SUPPORT_EMAIL
@@ -28,130 +29,126 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center p-4 bg-terminal-black font-mono">
-      {/* Background terminal grid glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(#182030_1px,transparent_1px)] [background-size:24px_24px] opacity-30 pointer-events-none" />
+    <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center p-4 bg-ink-950 relative overflow-hidden">
+      {/* Subtle warm ambient highlight at top */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-72 bg-[radial-gradient(ellipse_at_top,rgba(242,185,59,0.06),transparent_70%)] pointer-events-none" />
 
-      <div className="relative w-full max-w-md">
-        {/* Terminal Window Header Bar */}
-        <div className="bg-terminal-surface border border-terminal-border rounded-t-lg px-4 py-2 flex items-center justify-between text-xs text-terminal-subtext">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-terminal-red/80 inline-block" />
-            <span className="w-2.5 h-2.5 rounded-full bg-terminal-gold/80 inline-block" />
-            <span className="w-2.5 h-2.5 rounded-full bg-terminal-green/80 inline-block" />
-            <span className="ml-2 font-bold text-gray-200">AUTH.GATEWAY // RECOVERY</span>
-          </div>
-          <span className="text-[10px] text-terminal-gold font-bold">PASSKEY RECOVERY</span>
+      <div className="w-full max-w-[420px] mx-auto relative">
+        {/* Brand Header */}
+        <div className="text-center mb-8">
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center mb-5 transition-transform hover:scale-105 active:scale-95 duration-150"
+            aria-label="Back to home"
+          >
+            <BrandLogo className="w-12 h-12" />
+          </Link>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            Reset password
+          </h1>
+          <p className="mt-2 text-sm text-slate-400">
+            Get help regaining access to your XAUUSD Tracker account
+          </p>
         </div>
 
-        {/* Terminal Body */}
-        <div className="bg-terminal-card border-x border-b border-terminal-border rounded-b-lg p-6 sm:p-8 shadow-2xl space-y-6">
-          {/* Header Banner */}
-          <div className="border-b border-terminal-border/80 pb-4">
-            <div className="flex items-center gap-2 text-terminal-gold text-xs font-bold tracking-widest uppercase mb-1">
-              <KeyRound className="w-4 h-4 text-terminal-gold" />
-              <span>PASSKEY RESET & RECOVERY</span>
-            </div>
-            <p className="text-xs text-terminal-subtext leading-relaxed">
-              If you forgot your password or cannot access your account, our support engineers will verify your operator clearance and reset your credentials immediately.
-            </p>
-          </div>
-
-          {/* Form */}
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="recovery-email"
-                className="block text-xs font-semibold uppercase tracking-wider text-terminal-subtext mb-1.5"
-              >
-                [ENTER YOUR REGISTERED EMAIL]
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-terminal-subtext">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <input
-                  id="recovery-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="operator@xauusdtracker.com"
-                  className="w-full bg-terminal-surface border border-terminal-border focus:border-terminal-gold focus:ring-1 focus:ring-terminal-gold rounded py-2.5 pl-10 pr-3 text-xs text-white placeholder-terminal-subtext/40 transition outline-none font-mono"
-                />
+        {/* Main Card */}
+        <div className="bg-ink-900 border border-white/[0.08] shadow-[0_24px_50px_-12px_rgba(0,0,0,0.7)] rounded-2xl p-7 sm:p-8 space-y-5">
+          {/* Email input */}
+          <div>
+            <label
+              htmlFor="recovery-email"
+              className="block text-xs font-medium text-slate-300 mb-1.5"
+            >
+              Your registered email
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Mail className="w-4 h-4" />
               </div>
-            </div>
-
-            {/* Support Desk Action Card */}
-            <div className="rounded-xl border border-terminal-gold/30 bg-terminal-surface p-4 space-y-3">
-              <div className="flex items-start gap-2.5 text-xs text-gray-300">
-                <AlertCircle className="w-4 h-4 text-terminal-gold shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-white block">Official Support Recovery Desk</span>
-                  <p className="text-[11px] text-terminal-subtext mt-0.5">
-                    Click below to open Gmail pre-filled with your password reset request directly to our system administrators:
-                  </p>
-                </div>
-              </div>
-
-              {/* Email Address & Copy */}
-              <div className="flex items-center justify-between gap-2 bg-terminal-black rounded-lg p-2 border border-terminal-border">
-                <span className="font-mono text-xs font-semibold text-terminal-gold truncate">
-                  {SUPPORT_EMAIL}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="px-2.5 py-1 text-[10px] bg-terminal-card hover:bg-terminal-surface border border-terminal-border text-gray-300 rounded flex items-center gap-1 cursor-pointer transition"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3 h-3 text-terminal-green" />
-                      <span className="text-terminal-green font-bold">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3" />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Action Buttons */}
-              <a
-                href={gmailComposeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-2.5 px-4 bg-terminal-gold hover:bg-amber-400 text-terminal-black font-extrabold text-xs tracking-wider uppercase rounded transition flex items-center justify-center gap-2 border border-terminal-gold shadow-[0_0_15px_rgba(245,158,11,0.2)] cursor-pointer"
-              >
-                <span>OPEN GMAIL RESET REQUEST</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-
-              <div className="text-center">
-                <a
-                  href={mailtoUrl}
-                  className="text-[11px] text-terminal-subtext hover:text-white underline transition"
-                >
-                  Use default email client instead
-                </a>
-              </div>
+              <input
+                id="recovery-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className="w-full bg-ink-850 border border-white/10 hover:border-white/20 focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20 text-white placeholder-slate-500 rounded-xl py-2.5 pl-10 pr-3.5 text-sm transition outline-none"
+              />
             </div>
           </div>
 
-          {/* Footer Return Link */}
-          <div className="pt-4 border-t border-terminal-border flex flex-col items-center gap-3 text-center">
+          {/* Support helper box */}
+          <div className="rounded-xl border border-white/10 bg-ink-850 p-4 space-y-3">
+            <div className="flex items-start gap-3 text-xs text-slate-300">
+              <HelpCircle className="w-4 h-4 text-gold-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium text-white block">Official Support Desk</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Send a pre-filled reset request directly to our verified support team:
+                </p>
+              </div>
+            </div>
+
+            {/* Email Address & Copy */}
+            <div className="flex items-center justify-between gap-2 bg-ink-900 rounded-lg p-2.5 border border-white/[0.08]">
+              <span className="text-xs font-medium text-gold-300 truncate">
+                {SUPPORT_EMAIL}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-white transition-colors px-2 py-1 rounded bg-white/5 hover:bg-white/10"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3 text-bull-400" />
+                    <span className="text-bull-400">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="space-y-2.5 pt-1">
+            <a
+              href={gmailComposeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 px-4 bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-300 hover:to-gold-400 text-ink-950 font-semibold text-sm rounded-xl shadow-gold hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-2 active:scale-[0.99]"
+            >
+              <span>Open in Gmail</span>
+              <ExternalLink className="w-4 h-4" />
+            </a>
+
+            <a
+              href={mailtoUrl}
+              className="w-full py-2.5 px-4 bg-ink-850 hover:bg-ink-800 border border-white/10 hover:border-white/20 text-slate-200 font-medium text-xs rounded-xl transition flex items-center justify-center gap-2"
+            >
+              <span>Open in Default Mail Client</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </a>
+          </div>
+
+          {/* Back to sign in */}
+          <div className="mt-5 pt-4 border-t border-white/[0.08] text-center">
             <Link
               href="/login"
-              className="text-xs text-terminal-gold hover:underline font-bold flex items-center gap-1.5"
+              className="text-xs font-medium text-slate-400 hover:text-white transition-colors"
             >
-              <span>‹ RETURN TO OPERATOR LOGIN</span>
+              ← Back to sign in
             </Link>
-            <div className="flex items-center justify-center gap-2 text-[10px] text-terminal-subtext/60">
-              <Shield className="w-3 h-3 text-terminal-green" />
-              <span>TLS 1.3 / STRICT CIPHER SUITE / AUDITED LOGS</span>
-            </div>
           </div>
+        </div>
+
+        {/* Security badge */}
+        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-500">
+          <ShieldCheck className="w-3.5 h-3.5 text-bull-400" />
+          <span>Priority support • Verified response within 24 hours</span>
         </div>
       </div>
     </div>

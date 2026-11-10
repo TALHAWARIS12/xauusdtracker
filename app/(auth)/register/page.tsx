@@ -1,16 +1,19 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Terminal, Shield, Lock, Mail, CheckCircle2, AlertTriangle, ArrowRight, Gift } from "lucide-react";
+import { Lock, Mail, CheckCircle2, AlertCircle, ArrowRight, Gift, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { registerUser, RegisterState } from "@/actions/auth-actions";
-import { Suspense } from "react";
+import { BrandLogo } from "@/components/layout/BrandLogo";
 
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const refCode = searchParams.get("ref") ?? "";
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [state, formAction, isPending] = useActionState<RegisterState | null, FormData>(
     registerUser,
@@ -27,207 +30,224 @@ function RegisterForm() {
   }, [state?.success, router]);
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center p-4 bg-terminal-black font-mono">
-      {/* Background terminal grid glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(#182030_1px,transparent_1px)] [background-size:24px_24px] opacity-30 pointer-events-none" />
+    <div className="w-full max-w-[420px] mx-auto">
+      {/* Brand Header */}
+      <div className="text-center mb-8">
+        <Link
+          href="/"
+          className="inline-flex items-center justify-center mb-5 transition-transform hover:scale-105 active:scale-95 duration-150"
+          aria-label="Back to home"
+        >
+          <BrandLogo className="w-12 h-12" />
+        </Link>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white">
+          Create your account
+        </h1>
+        <p className="mt-2 text-sm text-slate-400">
+          Start tracking institutional gold liquidity and real-time signals
+        </p>
+      </div>
 
-      <div className="relative w-full max-w-md">
-        {/* Terminal Window Header Bar */}
-        <div className="bg-terminal-surface border border-terminal-border rounded-t-lg px-4 py-2 flex items-center justify-between text-xs text-terminal-subtext">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-terminal-red/80 inline-block" />
-            <span className="w-2.5 h-2.5 rounded-full bg-terminal-gold/80 inline-block" />
-            <span className="w-2.5 h-2.5 rounded-full bg-terminal-green/80 inline-block" />
-            <span className="ml-2 font-bold text-gray-200">NODE.ENROLLMENT // NEW OPERATOR</span>
-          </div>
-          <span className="text-[10px] text-terminal-green font-bold">STATUS: READY</span>
-        </div>
-
-        {/* Terminal Body */}
-        <div className="bg-terminal-card border-x border-b border-terminal-border rounded-b-lg p-6 sm:p-8 shadow-2xl">
-          {/* Header Banner */}
-          <div className="mb-6 border-b border-terminal-border/80 pb-4">
-            <div className="flex items-center gap-2 text-terminal-gold text-xs font-bold tracking-widest uppercase mb-1">
-              <Terminal className="w-4 h-4 text-terminal-gold" />
-              <span>COMMISSION OPERATOR ACCESS KEY</span>
+      {/* Main Card */}
+      <div className="bg-ink-900 border border-white/[0.08] shadow-[0_24px_50px_-12px_rgba(0,0,0,0.7)] rounded-2xl p-7 sm:p-8">
+        {/* Referral Badge */}
+        {refCode && (
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-gold-400/30 bg-gold-400/10 p-3 text-xs text-gold-300">
+            <Gift className="w-4 h-4 shrink-0 text-gold-400" />
+            <div>
+              <span className="font-semibold text-white">Referral code applied: </span>
+              <span className="font-mono text-gold-400 font-bold">{refCode}</span>
             </div>
-            <p className="text-xs text-terminal-subtext leading-relaxed">
-              Create a cryptographic credential to initialize telemetry streaming, algorithmic signal radar, and institutional tier modules.
-            </p>
           </div>
+        )}
 
-          {/* Referral Badge */}
-          {refCode && (
-            <div className="mb-5 flex items-center gap-2.5 rounded border border-terminal-gold/40 bg-terminal-gold/10 px-3 py-2.5 text-xs text-terminal-gold">
-              <Gift className="w-4 h-4 shrink-0" />
-              <div>
-                <span className="font-bold">Referral Code Applied:</span>{" "}
-                <span className="font-mono tracking-wider">{refCode}</span>
-                <p className="text-[10px] text-terminal-gold/70 mt-0.5">
-                  Your referrer will earn rewards when you subscribe — register now to unlock the connection.
-                </p>
+        {/* Success Notification */}
+        {state?.success ? (
+          <div className="p-4 bg-bull-500/10 border border-bull-500/30 rounded-xl text-xs text-bull-300 flex items-start gap-3 my-2">
+            <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-bull-400" />
+            <div>
+              <p className="font-semibold text-sm text-white">Account created successfully</p>
+              <p className="text-slate-300 mt-1">
+                Redirecting to sign-in page...
+              </p>
+              <Link
+                href="/login?enrolled=true"
+                className="mt-3 inline-flex items-center gap-1 text-gold-400 hover:text-gold-300 font-semibold"
+              >
+                Sign in now ›
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* General Error Notice */}
+            {state?.error && (
+              <div className="mb-6 p-3.5 bg-bear-500/10 border border-bear-500/30 rounded-xl flex items-start gap-3 text-xs text-bear-300">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-bear-400" />
+                <div className="flex-1">
+                  <span className="font-semibold">Sign up failed: </span>
+                  {state.error}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Success Notification */}
-          {state?.success ? (
-            <div className="p-4 bg-terminal-green/10 border border-terminal-green/40 rounded text-xs text-terminal-green flex items-start gap-3 my-4">
-              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+            {/* Form */}
+            <form action={formAction} className="space-y-4">
+              {/* Hidden referral code field */}
+              <input type="hidden" name="referralCode" value={refCode} />
+
               <div>
-                <p className="font-bold">CREDENTIALS COMMISSIONED SUCCESSFULLY</p>
-                <p className="text-[11px] text-gray-300 mt-1">
-                  Operator profile created in database. Redirecting to terminal gateway login...
-                </p>
-                <Link
-                  href="/login"
-                  className="mt-2 inline-flex items-center gap-1 text-terminal-gold hover:underline font-bold"
+                <label
+                  htmlFor="email"
+                  className="block text-xs font-medium text-slate-300 mb-1.5"
                 >
-                  PROCEED TO LOGIN IMMEDIATELY ›
-                </Link>
+                  Email address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder="name@example.com"
+                    className="w-full bg-ink-850 border border-white/10 hover:border-white/20 focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20 text-white placeholder-slate-500 rounded-xl py-2.5 pl-10 pr-3.5 text-sm transition outline-none"
+                  />
+                </div>
+                {state?.fieldErrors?.email && (
+                  <p className="mt-1.5 text-xs text-bear-400">
+                    {state.fieldErrors.email[0]}
+                  </p>
+                )}
               </div>
-            </div>
-          ) : (
-            <>
-              {/* General Error Notice */}
-              {state?.error && (
-                <div className="mb-6 p-3 bg-terminal-red/10 border border-terminal-red/40 rounded flex items-start gap-2.5 text-xs text-terminal-red">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <span className="font-bold">ENROLLMENT FAILED:</span> {state.error}
-                  </div>
-                </div>
-              )}
 
-              {/* Form */}
-              <form action={formAction} className="space-y-4">
-                {/* Hidden referral code field */}
-                <input type="hidden" name="referralCode" value={refCode} />
-
-                <div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
                   <label
-                    htmlFor="email"
-                    className="block text-xs font-semibold uppercase tracking-wider text-terminal-subtext mb-1.5"
+                    htmlFor="password"
+                    className="block text-xs font-medium text-slate-300"
                   >
-                    [OPERATOR EMAIL ADDRESS]
+                    Password
                   </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-terminal-subtext">
-                      <Mail className="w-4 h-4" />
-                    </div>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      required
-                      placeholder="analyst@institutional-fund.com"
-                      className="w-full bg-terminal-surface border border-terminal-border focus:border-terminal-gold focus:ring-1 focus:ring-terminal-gold rounded py-2.5 pl-10 pr-3 text-xs text-white placeholder-terminal-subtext/40 transition outline-none font-mono"
-                    />
-                  </div>
-                  {state?.fieldErrors?.email && (
-                    <p className="mt-1 text-[11px] text-terminal-red">
-                      {state.fieldErrors.email[0]}
-                    </p>
-                  )}
+                  <span className="text-[11px] text-slate-400">Min 8 characters</span>
                 </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label
-                      htmlFor="password"
-                      className="block text-xs font-semibold uppercase tracking-wider text-terminal-subtext"
-                    >
-                      [SECURITY PASSKEY]
-                    </label>
-                    <span className="text-[10px] text-terminal-subtext/60">MIN 8 CHARACTERS</span>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock className="w-4 h-4" />
                   </div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-terminal-subtext">
-                      <Lock className="w-4 h-4" />
-                    </div>
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      required
-                      placeholder="••••••••••••"
-                      className="w-full bg-terminal-surface border border-terminal-border focus:border-terminal-gold focus:ring-1 focus:ring-terminal-gold rounded py-2.5 pl-10 pr-3 text-xs text-white placeholder-terminal-subtext/40 transition outline-none font-mono"
-                    />
-                  </div>
-                  {state?.fieldErrors?.password && (
-                    <p className="mt-1 text-[11px] text-terminal-red">
-                      {state.fieldErrors.password[0]}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="confirmPassword"
-                    className="block text-xs font-semibold uppercase tracking-wider text-terminal-subtext mb-1.5"
-                  >
-                    [CONFIRM SECURITY PASSKEY]
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-terminal-subtext">
-                      <Lock className="w-4 h-4" />
-                    </div>
-                    <input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type="password"
-                      required
-                      placeholder="••••••••••••"
-                      className="w-full bg-terminal-surface border border-terminal-border focus:border-terminal-gold focus:ring-1 focus:ring-terminal-gold rounded py-2.5 pl-10 pr-3 text-xs text-white placeholder-terminal-subtext/40 transition outline-none font-mono"
-                    />
-                  </div>
-                  {state?.fieldErrors?.confirmPassword && (
-                    <p className="mt-1 text-[11px] text-terminal-red">
-                      {state.fieldErrors.confirmPassword[0]}
-                    </p>
-                  )}
-                </div>
-
-                <div className="pt-2">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    autoComplete="new-password"
+                    placeholder="••••••••••••"
+                    className="w-full bg-ink-850 border border-white/10 hover:border-white/20 focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20 text-white placeholder-slate-500 rounded-xl py-2.5 pl-10 pr-10 text-sm transition outline-none"
+                  />
                   <button
-                    type="submit"
-                    disabled={isPending}
-                    className="w-full py-3 px-4 bg-terminal-gold hover:bg-amber-400 text-terminal-black font-extrabold text-xs tracking-wider uppercase rounded transition flex items-center justify-center gap-2 border border-terminal-gold shadow-[0_0_15px_rgba(245,158,11,0.2)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
-                    {isPending ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border-2 border-terminal-black border-t-transparent rounded-full animate-spin" />
-                        <span>COMMISSIONING NODE KEY...</span>
-                      </>
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
                     ) : (
-                      <>
-                        <span>CREATE TERMINAL OPERATOR</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
+                      <Eye className="w-4 h-4" />
                     )}
                   </button>
                 </div>
-              </form>
-            </>
-          )}
+                {state?.fieldErrors?.password && (
+                  <p className="mt-1.5 text-xs text-bear-400">
+                    {state.fieldErrors.password[0]}
+                  </p>
+                )}
+              </div>
 
-          {/* Footer Metadata & Login Link */}
-          <div className="mt-8 pt-4 border-t border-terminal-border flex flex-col gap-3 text-center">
-            <p className="text-xs text-terminal-subtext">
-              Already possess clearance credentials?{" "}
-              <Link
-                href="/login"
-                className="text-terminal-gold hover:underline font-bold"
-              >
-                INITIALIZE GATEWAY LOGIN ›
-              </Link>
-            </p>
-            <div className="flex items-center justify-center gap-2 text-[10px] text-terminal-subtext/60">
-              <Shield className="w-3 h-3 text-terminal-gold" />
-              <span>BCRYPT SALT-10 HASHING // STRICT SCHEMAS</span>
-            </div>
-          </div>
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-xs font-medium text-slate-300 mb-1.5"
+                >
+                  Confirm password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    required
+                    autoComplete="new-password"
+                    placeholder="••••••••••••"
+                    className="w-full bg-ink-850 border border-white/10 hover:border-white/20 focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20 text-white placeholder-slate-500 rounded-xl py-2.5 pl-10 pr-10 text-sm transition outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                {state?.fieldErrors?.confirmPassword && (
+                  <p className="mt-1.5 text-xs text-bear-400">
+                    {state.fieldErrors.confirmPassword[0]}
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-300 hover:to-gold-400 text-ink-950 font-semibold text-sm rounded-xl shadow-gold hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isPending ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-ink-950 border-t-transparent rounded-full animate-spin" />
+                      <span>Creating account...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Create account</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+
+        {/* Footer Link */}
+        <div className="mt-6 pt-5 border-t border-white/[0.08] text-center">
+          <p className="text-sm text-slate-400">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="text-gold-400 hover:text-gold-300 font-medium transition-colors"
+            >
+              Sign in
+            </Link>
+          </p>
         </div>
+      </div>
+
+      {/* Security badge */}
+      <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-500">
+        <ShieldCheck className="w-3.5 h-3.5 text-bull-400" />
+        <span>Bcrypt salted encryption • Strict data privacy</span>
       </div>
     </div>
   );
@@ -235,12 +255,19 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center bg-terminal-black">
-        <div className="w-8 h-8 border-2 border-terminal-gold border-t-transparent rounded-full animate-spin" />
-      </div>
-    }>
-      <RegisterForm />
-    </Suspense>
+    <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center p-4 bg-ink-950 relative overflow-hidden">
+      {/* Subtle warm ambient highlight at top */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-72 bg-[radial-gradient(ellipse_at_top,rgba(242,185,59,0.06),transparent_70%)] pointer-events-none" />
+
+      <Suspense
+        fallback={
+          <div className="w-full max-w-[420px] mx-auto flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+        }
+      >
+        <RegisterForm />
+      </Suspense>
+    </div>
   );
 }
