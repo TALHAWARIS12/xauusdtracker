@@ -10,6 +10,7 @@ import { BrandLogo } from "@/components/layout/BrandLogo";
 function LoginForm() {
   const searchParams = useSearchParams();
   const enrolled = searchParams.get("enrolled") === "true";
+  const callbackUrl = searchParams.get("callbackUrl") || "";
   const [showPassword, setShowPassword] = useState(false);
 
   const [state, formAction, isPending] = useActionState<LoginState | null, FormData>(
@@ -59,6 +60,7 @@ function LoginForm() {
 
         {/* Form */}
         <form action={formAction} className="space-y-4">
+          <input type="hidden" name="callbackUrl" value={callbackUrl} />
           <div>
             <label
               htmlFor="email"

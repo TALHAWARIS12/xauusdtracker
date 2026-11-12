@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getPlanById } from "@/lib/plan-config";
@@ -6,21 +7,48 @@ import { createIntaSendCheckoutSession } from "@/lib/intasend";
 
 export async function POST(req: Request) {
   try {
-    // 1. Authenticate user
-    const session = await auth();
-    if (!session?.user?.id || !session.user.email) {
-      return NextResponse.json(
-        { error: "Unauthorized: Please sign in to initiate payment." },
-        { status: 401 }
-      );
-    }
-
-    const userId = session.user.id;
-    const userEmail = session.user.email;
-
-    // 2. Parse request payload
+    // 1. Parse request payload first so guest checkout email can be supported smoothly
     const body = await req.json().catch(() => ({}));
-    const { planId, phoneNumber } = body;
+    const { planId, phoneNumber, email: rawGuestEmail } = body;
+
+    // 2. Resolve user from active session OR checkout email
+    const session = await auth();
+    let userId = session?.user?.id;
+    let userEmail = session?.user?.email;
+
+    if (!userId || !userEmail) {
+      const candidateEmail =
+        typeof rawGuestEmail === "string" ? rawGuestEmail.trim().toLowerCase() : "";
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidateEmail);
+
+      if (!isValidEmail) {
+        return NextResponse.json(
+          { error: "Please enter a valid email address or sign in to continue." },
+          { status: 401 }
+        );
+      }
+
+      let existingUser = await prisma.user.findUnique({
+        where: { email: candidateEmail },
+      });
+
+      if (!existingUser) {
+        const tempHash = await bcrypt.hash(`xau_${Date.now()}_${Math.random()}`, 10);
+        existingUser = await prisma.user.create({
+          data: {
+            email: candidateEmail,
+            passwordHash: tempHash,
+            role: "USER",
+            subscription: {
+              create: { status: "INACTIVE" },
+            },
+          },
+        });
+      }
+
+      userId = existingUser.id;
+      userEmail = existingUser.email;
+    }
 
     if (!planId || typeof planId !== "string") {
       return NextResponse.json(

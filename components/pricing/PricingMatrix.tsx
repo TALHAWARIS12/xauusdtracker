@@ -166,7 +166,7 @@ export function PricingMatrix({ isSubscribed = false, activePlanId = null }: Pri
           <div>
             <h4 className="text-sm font-semibold text-white">100% Risk-Free Guarantee</h4>
             <p className="text-xs text-slate-400">
-              Instant activation upon blockchain confirmation. Pay securely via NOWPayments with USDT, BTC, ETH, and 200+ coins.
+              Instant activation upon payment confirmation. Pay seamlessly via M-Pesa (STK Push) or Debit / Credit Card (Visa &amp; Mastercard).
             </p>
           </div>
         </div>
@@ -178,7 +178,7 @@ export function PricingMatrix({ isSubscribed = false, activePlanId = null }: Pri
           </span>
           <span className="flex items-center gap-1.5">
             <Check className="h-4 w-4 text-bull-300" />
-            Crypto (NOWPayments)
+            M-Pesa &amp; Card Accepted
           </span>
           <span className="flex items-center gap-1.5">
             <Check className="h-4 w-4 text-bull-300" />
@@ -196,9 +196,9 @@ export function PricingMatrix({ isSubscribed = false, activePlanId = null }: Pri
 
         <div className="grid gap-3 text-xs">
           <div className="card-muted p-4 space-y-1.5">
-            <h3 className="font-semibold text-white text-sm">How does the Cryptocurrency checkout work?</h3>
+            <h3 className="font-semibold text-white text-sm">How does M-Pesa &amp; Card checkout work?</h3>
             <p className="text-slate-400 leading-relaxed">
-              Payments are handled through our NOWPayments cryptocurrency gateway. You can pay with USDT (TRC20/ERC20), Bitcoin, Ethereum, Solana, and over 200 other digital assets. Once the blockchain transaction confirms, your Pro clearance activates immediately.
+              When you click Subscribe, you can choose between instant M-Pesa STK Push (Safaricom / Airtel Money) or Debit / Credit Card (Visa &amp; Mastercard). Once your payment is confirmed, your Pro clearance activates immediately.
             </p>
           </div>
 

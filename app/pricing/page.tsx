@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Subscription Plans & Pricing",
   description:
-    "Choose your XAU/USD gold intelligence access tier. Monthly ($48/mo) and Yearly ($188/yr) plans available with instant Crypto checkout via NOWPayments.",
+    "Choose your XAU/USD gold intelligence access tier. Monthly ($48/mo) and Yearly ($188/yr) plans available with instant M-Pesa and Debit/Credit Card checkout.",
 };
 
 export default async function PricingPage() {

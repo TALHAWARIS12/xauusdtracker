@@ -195,8 +195,16 @@ export async function loginUser(
     };
   }
 
+  const rawCallback = formData.get("callbackUrl");
+  const safeCallback =
+    typeof rawCallback === "string" &&
+    rawCallback.startsWith("/") &&
+    !rawCallback.startsWith("//")
+      ? rawCallback
+      : "/dashboard";
+
   // Issue relative redirect to keep the operator session on the current active domain
-  redirect("/dashboard");
+  redirect(safeCallback);
 }
 
 export type ChangePasswordState = {
