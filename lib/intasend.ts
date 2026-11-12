@@ -93,21 +93,19 @@ export async function createIntaSendCheckoutSession(
     : undefined;
 
   // Sanitize redirect_url and ensure it is a clean absolute URL without quotes or query params
-  const rawRedirect = (params.redirectUrl || "").trim().replace(/^["']|["']$/g, "");
-  let cleanRedirectUrl = rawRedirect.split("?")[0].trim();
-  if (!cleanRedirectUrl.startsWith("http://") && !cleanRedirectUrl.startsWith("https://")) {
-    const rawApp = (process.env.NEXT_PUBLIC_APP_URL || "https://xauusdtracker.com")
-      .trim()
-      .replace(/^["']|["']$/g, "")
-      .replace(/\/+$/, "");
-    cleanRedirectUrl = `${rawApp}/payment/status`;
-  }
+  const cleanAppUrl = (
+    process.env.NEXT_PUBLIC_APP_URL || "https://xauusdtracker.com"
+  )
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/\/+$/, "");
 
-  let cleanHost: string | undefined;
-  try {
-    cleanHost = new URL(cleanRedirectUrl).origin;
-  } catch {
-    cleanHost = "https://xauusdtracker.com";
+  let cleanRedirectUrl = params.redirectUrl
+    ? params.redirectUrl.trim().replace(/^["']|["']$/g, "").split("?")[0]
+    : `${cleanAppUrl}/payment/status`;
+
+  if (!cleanRedirectUrl.startsWith("http://") && !cleanRedirectUrl.startsWith("https://")) {
+    cleanRedirectUrl = `${cleanAppUrl}/payment/status`;
   }
 
   const payload: Record<string, any> = {
@@ -117,83 +115,44 @@ export async function createIntaSendCheckoutSession(
     email: params.email.trim().toLowerCase(),
     first_name: (params.firstName || "Customer").trim(),
     last_name: (params.lastName || "Subscriber").trim(),
-    host: cleanHost,
     redirect_url: cleanRedirectUrl,
     api_ref: String(params.apiRef).trim(),
   };
-
-  if (params.method) {
-    payload.method = params.method;
-  }
 
   if (formattedPhone) {
     payload.phone_number = formattedPhone;
   }
 
-  const requestHeaders = {
-    "Content-Type": "application/json",
-    "Accept": "application/json",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "X-IntaSend-Public-API-Key": pubKey,
-  };
+  const response = await fetch(`${baseUrl}/api/v1/checkout/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-IntaSend-Public-API-Key": pubKey,
+    },
+    body: JSON.stringify(payload),
+  });
 
-  const endpointUrls = pubKey.includes("_test_")
-    ? ["https://sandbox.intasend.com/api/v1/checkout/"]
-    : [
-        "https://payment.intasend.com/api/v1/checkout/",
-        "https://api.intasend.com/api/v1/checkout/",
-      ];
-
-  let response: Response | null = null;
-  let lastErrorText = "";
-
-  for (const url of endpointUrls) {
-    try {
-      response = await fetch(url, {
+  if (!response.ok) {
+    // If request with phone number fails, retry immediately with clean base payload
+    if (payload.phone_number) {
+      delete payload.phone_number;
+      const retryRes = await fetch(`${baseUrl}/api/v1/checkout/`, {
         method: "POST",
-        headers: requestHeaders,
+        headers: {
+          "Content-Type": "application/json",
+          "X-IntaSend-Public-API-Key": pubKey,
+        },
         body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
-        break;
+      if (retryRes.ok) {
+        return retryRes.json();
       }
-
-      // If method/phone caused error, retry with universal fallback payload
-      if (payload.method || payload.phone_number) {
-        const fallbackPayload: Record<string, any> = {
-          public_key: pubKey,
-          amount: Number(params.amountUsd),
-          currency: "USD",
-          email: params.email.trim().toLowerCase(),
-          first_name: (params.firstName || "Customer").trim(),
-          last_name: (params.lastName || "Subscriber").trim(),
-          host: cleanHost,
-          redirect_url: cleanRedirectUrl,
-          api_ref: String(params.apiRef).trim(),
-        };
-
-        const retryRes = await fetch(url, {
-          method: "POST",
-          headers: requestHeaders,
-          body: JSON.stringify(fallbackPayload),
-        });
-
-        if (retryRes.ok) {
-          response = retryRes;
-          break;
-        }
-      }
-
-      lastErrorText = await response.text();
-    } catch (err: any) {
-      lastErrorText = err?.message || "Network error reaching IntaSend";
     }
-  }
 
-  if (!response || !response.ok) {
-    console.error("IntaSend checkout session initialization error:", response?.status, lastErrorText);
-    throw new Error(`IntaSend API error (${response?.status || 500}): ${lastErrorText}`);
+    const errorText = await response.text();
+    console.error("IntaSend checkout session initialization error:", response.status, errorText);
+    throw new Error(`IntaSend API error (${response.status}): ${errorText}`);
   }
 
   return response.json();

@@ -86,15 +86,7 @@ export async function POST(req: Request) {
     const appUrl = rawAppUrl.trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
 
     // 5. Initialize IntaSend checkout session
-    const pubKey = (
-      process.env.INTASEND_PUBLISHABLE_KEY ||
-      process.env.NEXT_PUBLIC_INTASEND_PUBLISHABLE_KEY ||
-      ""
-    )
-      .trim()
-      .replace(/^["']|["']$/g, "");
-
-    let intasendSession: { id?: string; url?: string } | undefined;
+    let intasendSession;
     try {
       // Sanitize phone number (ignore if email or non-digit was entered by accident)
       const validPhone =
@@ -109,16 +101,28 @@ export async function POST(req: Request) {
         email: userEmail,
         phoneNumber: validPhone,
         apiRef: payment.id,
-        method: typeof method === "string" && method.trim() ? method.trim() : undefined,
-        // IntaSend appends ?checkout_id=... upon completion
         redirectUrl: `${appUrl}/payment/status`,
       });
+
+      if (!intasendSession?.url) {
+        throw new Error(intasendSession?.detail || "Failed to generate IntaSend checkout session URL.");
+      }
     } catch (apiError: any) {
-      console.warn("IntaSend server-side checkout session warning (client inline SDK will take over):", apiError?.message);
+      // Mark payment as failed if IntaSend initialization fails
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: "FAILED" },
+      }).catch(() => null);
+
+      console.error("IntaSend initialization error:", apiError);
+      return NextResponse.json(
+        { error: apiError?.message || "Failed to initialize IntaSend checkout." },
+        { status: 502 }
+      );
     }
 
-    // 6. Store IntaSend checkout ID as initial providerReference if present
-    if (intasendSession?.id) {
+    // 6. Store IntaSend checkout ID as initial providerReference
+    if (intasendSession.id) {
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
@@ -127,15 +131,11 @@ export async function POST(req: Request) {
       }).catch(() => null);
     }
 
-    // 7. Return order ID, publishable key, and checkout URL to frontend
+    // 7. Return checkout URL to redirect the user
     return NextResponse.json({
+      checkoutUrl: intasendSession.url,
       orderId: payment.id,
-      publishableKey: pubKey,
-      isLive: !pubKey.includes("_test_"),
-      amountUsd: priceUsd,
-      email: userEmail,
-      checkoutUrl: intasendSession?.url,
-      checkoutId: intasendSession?.id,
+      checkoutId: intasendSession.id,
     });
   } catch (error: any) {
     console.error("IntaSend checkout route error:", error);

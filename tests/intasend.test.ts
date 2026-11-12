@@ -68,7 +68,7 @@ describe("IntaSend Integration Helper Library", () => {
       process.env.INTASEND_PUBLISHABLE_KEY = "ISPubKey_test_dummy";
     });
 
-    it("creates a checkout session with M-PESA method and phone number", async () => {
+    it("creates a checkout session with phone number", async () => {
       const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -84,7 +84,6 @@ describe("IntaSend Integration Helper Library", () => {
         amountUsd: 48,
         email: "subscriber@example.com",
         phoneNumber: "0712345678",
-        method: "M-PESA",
         apiRef: "order_mpesa_1",
         redirectUrl: "https://xauusdtracker.com/payment/status?extra=1",
       });
@@ -96,7 +95,6 @@ describe("IntaSend Integration Helper Library", () => {
       expect(sentPayload.currency).toBe("USD");
       expect(sentPayload.amount).toBe(48);
       expect(sentPayload.email).toBe("subscriber@example.com");
-      expect(sentPayload.method).toBe("M-PESA");
       expect(sentPayload.phone_number).toBe("254712345678");
       expect(sentPayload.api_ref).toBe("order_mpesa_1");
       expect(sentPayload.redirect_url).toBe("https://xauusdtracker.com/payment/status");
@@ -105,38 +103,7 @@ describe("IntaSend Integration Helper Library", () => {
       fetchSpy.mockRestore();
     });
 
-    it("creates a checkout session with CARD-PAYMENT method", async () => {
-      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          id: "session_card_456",
-          url: "https://payment.intasend.com/checkout/session_card_456/express/",
-          methods: ["transfi", "pesalink", "mpesa"],
-          currency: "USD",
-          amount: 48,
-        }),
-      } as any);
-
-      const result = await createIntaSendCheckoutSession({
-        amountUsd: 48,
-        email: "cardholder@example.com",
-        method: "CARD-PAYMENT",
-        apiRef: "order_card_2",
-        redirectUrl: "https://xauusdtracker.com/payment/status",
-      });
-
-      expect(fetchSpy).toHaveBeenCalled();
-      const sentPayload = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
-
-      expect(sentPayload.method).toBe("CARD-PAYMENT");
-      expect(sentPayload.phone_number).toBeUndefined();
-      expect(sentPayload.email).toBe("cardholder@example.com");
-      expect(result.id).toBe("session_card_456");
-
-      fetchSpy.mockRestore();
-    });
-
-    it("handles unified checkout without explicit method specified", async () => {
+    it("handles unified checkout without phone number specified", async () => {
       const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -158,14 +125,14 @@ describe("IntaSend Integration Helper Library", () => {
       expect(fetchSpy).toHaveBeenCalled();
       const sentPayload = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
 
-      expect(sentPayload.method).toBeUndefined();
+      expect(sentPayload.phone_number).toBeUndefined();
       expect(sentPayload.amount).toBe(188);
       expect(result.url).toBe("https://payment.intasend.com/checkout/session_unified_789/express/");
 
       fetchSpy.mockRestore();
     });
 
-    it("retries with universal checkout payload if specific method attempt fails with 500", async () => {
+    it("retries with clean base payload if phone number attempt fails with 500", async () => {
       const fetchSpy = vi
         .spyOn(global, "fetch")
         .mockResolvedValueOnce({
@@ -187,7 +154,6 @@ describe("IntaSend Integration Helper Library", () => {
       const result = await createIntaSendCheckoutSession({
         amountUsd: 48,
         email: "customer@example.com",
-        method: "M-PESA",
         phoneNumber: "0712345678",
         apiRef: "order_retry_1",
         redirectUrl: "https://xauusdtracker.com/payment/status",
