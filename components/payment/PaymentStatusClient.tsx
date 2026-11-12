@@ -57,13 +57,16 @@ export function PaymentStatusClient({
       const urlCheckoutId = searchParams.get("checkout_id") || searchParams.get("checkoutId");
       const urlInvoiceId = searchParams.get("invoice_id") || searchParams.get("invoiceId");
       const urlOrderId = searchParams.get("order_id") || searchParams.get("orderId");
-      if (!orderId && (urlCheckoutId || urlOrderId)) {
-        setOrderId(urlCheckoutId || urlOrderId);
+      const urlApiRef = searchParams.get("api_ref");
+      const urlTrackingId = searchParams.get("tracking_id");
+      const primaryId = urlCheckoutId || urlOrderId || urlApiRef || urlTrackingId;
+      if (!orderId && primaryId) {
+        setOrderId(primaryId);
       }
       if (!invoiceId && urlInvoiceId) {
         setInvoiceId(urlInvoiceId);
       }
-      if (!provider && (urlCheckoutId || urlInvoiceId)) {
+      if (!provider && (urlCheckoutId || urlInvoiceId || urlApiRef || urlTrackingId)) {
         setProvider("intasend");
       }
     }

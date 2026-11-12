@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   try {
     // 1. Parse request payload first so guest checkout email can be supported smoothly
     const body = await req.json().catch(() => ({}));
-    const { planId, phoneNumber, email: rawGuestEmail } = body;
+    const { planId, phoneNumber, email: rawGuestEmail, method } = body;
 
     // 2. Resolve user from active session OR checkout email
     const session = await auth();
@@ -100,6 +100,7 @@ export async function POST(req: Request) {
         email: userEmail,
         phoneNumber: validPhone,
         apiRef: payment.id,
+        method: typeof method === "string" && method.trim() ? method.trim() : undefined,
         // IntaSend appends ?checkout_id=... upon completion
         redirectUrl: `${appUrl}/payment/status`,
       });

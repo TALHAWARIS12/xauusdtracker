@@ -27,6 +27,10 @@ export default async function PaymentStatusPage({
       ? params.checkout_id
       : typeof params.checkoutId === "string"
       ? params.checkoutId
+      : typeof params.api_ref === "string"
+      ? params.api_ref
+      : typeof params.tracking_id === "string"
+      ? params.tracking_id
       : typeof params.id === "string"
       ? params.id
       : null;
@@ -44,7 +48,7 @@ export default async function PaymentStatusPage({
   let resolvedProvider =
     typeof params.provider === "string"
       ? params.provider
-      : params.checkout_id || params.checkoutId || invoiceId
+      : params.checkout_id || params.checkoutId || params.api_ref || params.tracking_id || invoiceId
       ? "intasend"
       : null;
 

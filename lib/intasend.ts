@@ -12,6 +12,7 @@ export interface IntaSendCheckoutParams {
   phoneNumber?: string;
   apiRef: string; // Our internal payment record ID
   redirectUrl: string;
+  method?: "M-PESA" | "CARD-PAYMENT" | string;
 }
 
 export interface IntaSendCheckoutResponse {
@@ -97,13 +98,16 @@ export async function createIntaSendCheckoutSession(
     public_key: pubKey,
     amount: params.amountUsd,
     currency: "USD",
-    method: "M-PESA",
     email: params.email,
     first_name: params.firstName || "Customer",
     last_name: params.lastName || "Subscriber",
     redirect_url: cleanRedirectUrl,
     api_ref: params.apiRef,
   };
+
+  if (params.method) {
+    payload.method = params.method;
+  }
 
   if (formattedPhone) {
     payload.phone_number = formattedPhone;

@@ -68,6 +68,103 @@ describe("IntaSend Integration Helper Library", () => {
       process.env.INTASEND_PUBLISHABLE_KEY = "ISPubKey_test_dummy";
     });
 
+    it("creates a checkout session with M-PESA method and phone number", async () => {
+      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "session_mpesa_123",
+          url: "https://payment.intasend.com/checkout/session_mpesa_123/express/",
+          methods: ["mpesa", "transfi"],
+          currency: "USD",
+          amount: 48,
+        }),
+      } as any);
+
+      const result = await createIntaSendCheckoutSession({
+        amountUsd: 48,
+        email: "subscriber@example.com",
+        phoneNumber: "0712345678",
+        method: "M-PESA",
+        apiRef: "order_mpesa_1",
+        redirectUrl: "https://xauusdtracker.com/payment/status?extra=1",
+      });
+
+      expect(fetchSpy).toHaveBeenCalled();
+      const callArgs = fetchSpy.mock.calls[0];
+      const sentPayload = JSON.parse(callArgs[1]?.body as string);
+
+      expect(sentPayload.currency).toBe("USD");
+      expect(sentPayload.amount).toBe(48);
+      expect(sentPayload.email).toBe("subscriber@example.com");
+      expect(sentPayload.method).toBe("M-PESA");
+      expect(sentPayload.phone_number).toBe("254712345678");
+      expect(sentPayload.api_ref).toBe("order_mpesa_1");
+      expect(sentPayload.redirect_url).toBe("https://xauusdtracker.com/payment/status");
+      expect(result.url).toContain("session_mpesa_123");
+
+      fetchSpy.mockRestore();
+    });
+
+    it("creates a checkout session with CARD-PAYMENT method", async () => {
+      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "session_card_456",
+          url: "https://payment.intasend.com/checkout/session_card_456/express/",
+          methods: ["transfi", "pesalink", "mpesa"],
+          currency: "USD",
+          amount: 48,
+        }),
+      } as any);
+
+      const result = await createIntaSendCheckoutSession({
+        amountUsd: 48,
+        email: "cardholder@example.com",
+        method: "CARD-PAYMENT",
+        apiRef: "order_card_2",
+        redirectUrl: "https://xauusdtracker.com/payment/status",
+      });
+
+      expect(fetchSpy).toHaveBeenCalled();
+      const sentPayload = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
+
+      expect(sentPayload.method).toBe("CARD-PAYMENT");
+      expect(sentPayload.phone_number).toBeUndefined();
+      expect(sentPayload.email).toBe("cardholder@example.com");
+      expect(result.id).toBe("session_card_456");
+
+      fetchSpy.mockRestore();
+    });
+
+    it("handles unified checkout without explicit method specified", async () => {
+      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "session_unified_789",
+          url: "https://payment.intasend.com/checkout/session_unified_789/express/",
+          methods: ["pesalink", "cashapp", "transfi", "mpesa"],
+          currency: "USD",
+          amount: 188,
+        }),
+      } as any);
+
+      const result = await createIntaSendCheckoutSession({
+        amountUsd: 188,
+        email: "unified@example.com",
+        apiRef: "order_unified_3",
+        redirectUrl: "https://xauusdtracker.com/payment/status",
+      });
+
+      expect(fetchSpy).toHaveBeenCalled();
+      const sentPayload = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
+
+      expect(sentPayload.method).toBeUndefined();
+      expect(sentPayload.amount).toBe(188);
+      expect(result.url).toBe("https://payment.intasend.com/checkout/session_unified_789/express/");
+
+      fetchSpy.mockRestore();
+    });
+
     it("throws error if INTASEND_PUBLISHABLE_KEY is missing", async () => {
       delete process.env.INTASEND_PUBLISHABLE_KEY;
       delete process.env.NEXT_PUBLIC_INTASEND_PUBLISHABLE_KEY;

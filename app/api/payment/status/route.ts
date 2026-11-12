@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
       searchParams.get("orderId") ||
       searchParams.get("checkout_id") ||
       searchParams.get("checkoutId") ||
+      searchParams.get("api_ref") ||
+      searchParams.get("tracking_id") ||
       searchParams.get("id");
 
     const invoiceId =
