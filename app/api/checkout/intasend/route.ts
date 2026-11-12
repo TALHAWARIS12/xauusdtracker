@@ -78,11 +78,12 @@ export async function POST(req: Request) {
       },
     });
 
-    // 4. Determine app base URL
+    // 4. Determine app base URL (sanitized against surrounding quotes/slashes)
     const url = new URL(req.url);
-    const appUrl =
+    const rawAppUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       `${url.protocol}//${url.host}`;
+    const appUrl = rawAppUrl.trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
 
     // 5. Initialize IntaSend checkout session
     let intasendSession;

@@ -41,15 +41,16 @@ export interface IntaSendPaymentStatusResponse {
 }
 
 function getPublishableKey(): string {
-  return (
+  const raw =
     process.env.INTASEND_PUBLISHABLE_KEY ||
     process.env.NEXT_PUBLIC_INTASEND_PUBLISHABLE_KEY ||
-    ""
-  );
+    "";
+  return raw.trim().replace(/^["']|["']$/g, "").trim();
 }
 
 function getSecretKey(): string {
-  return process.env.INTASEND_SECRET_KEY || "";
+  const raw = process.env.INTASEND_SECRET_KEY || "";
+  return raw.trim().replace(/^["']|["']$/g, "").trim();
 }
 
 function getBaseUrl(): string {
@@ -91,18 +92,34 @@ export async function createIntaSendCheckoutSession(
     ? formatIntaSendPhoneNumber(params.phoneNumber)
     : undefined;
 
-  // IntaSend strictly disallows query parameters in redirect_url
-  const cleanRedirectUrl = params.redirectUrl.split("?")[0];
+  // Sanitize redirect_url and ensure it is a clean absolute URL without quotes or query params
+  const rawRedirect = (params.redirectUrl || "").trim().replace(/^["']|["']$/g, "");
+  let cleanRedirectUrl = rawRedirect.split("?")[0].trim();
+  if (!cleanRedirectUrl.startsWith("http://") && !cleanRedirectUrl.startsWith("https://")) {
+    const rawApp = (process.env.NEXT_PUBLIC_APP_URL || "https://xauusdtracker.com")
+      .trim()
+      .replace(/^["']|["']$/g, "")
+      .replace(/\/+$/, "");
+    cleanRedirectUrl = `${rawApp}/payment/status`;
+  }
+
+  let cleanHost: string | undefined;
+  try {
+    cleanHost = new URL(cleanRedirectUrl).origin;
+  } catch {
+    cleanHost = "https://xauusdtracker.com";
+  }
 
   const payload: Record<string, any> = {
     public_key: pubKey,
-    amount: params.amountUsd,
+    amount: Number(params.amountUsd),
     currency: "USD",
-    email: params.email,
-    first_name: params.firstName || "Customer",
-    last_name: params.lastName || "Subscriber",
+    email: params.email.trim().toLowerCase(),
+    first_name: (params.firstName || "Customer").trim(),
+    last_name: (params.lastName || "Subscriber").trim(),
+    host: cleanHost,
     redirect_url: cleanRedirectUrl,
-    api_ref: params.apiRef,
+    api_ref: String(params.apiRef).trim(),
   };
 
   if (params.method) {
@@ -113,7 +130,7 @@ export async function createIntaSendCheckoutSession(
     payload.phone_number = formattedPhone;
   }
 
-  const response = await fetch(`${baseUrl}/api/v1/checkout/`, {
+  let response = await fetch(`${baseUrl}/api/v1/checkout/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -121,6 +138,35 @@ export async function createIntaSendCheckoutSession(
     },
     body: JSON.stringify(payload),
   });
+
+  // If first attempt returned 500/502 and payload contained optional method or phone, retry with universal checkout payload
+  if (!response.ok && (payload.method || payload.phone_number)) {
+    console.warn("IntaSend attempt with specific method/phone failed, retrying with universal checkout payload...");
+    const fallbackPayload: Record<string, any> = {
+      public_key: pubKey,
+      amount: Number(params.amountUsd),
+      currency: "USD",
+      email: params.email.trim().toLowerCase(),
+      first_name: (params.firstName || "Customer").trim(),
+      last_name: (params.lastName || "Subscriber").trim(),
+      host: cleanHost,
+      redirect_url: cleanRedirectUrl,
+      api_ref: String(params.apiRef).trim(),
+    };
+
+    const retryResponse = await fetch(`${baseUrl}/api/v1/checkout/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-IntaSend-Public-API-Key": pubKey,
+      },
+      body: JSON.stringify(fallbackPayload),
+    });
+
+    if (retryResponse.ok) {
+      response = retryResponse;
+    }
+  }
 
   if (!response.ok) {
     const errorText = await response.text();

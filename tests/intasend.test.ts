@@ -165,6 +165,41 @@ describe("IntaSend Integration Helper Library", () => {
       fetchSpy.mockRestore();
     });
 
+    it("retries with universal checkout payload if specific method attempt fails with 500", async () => {
+      const fetchSpy = vi
+        .spyOn(global, "fetch")
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          text: async () => '{"type":"server_error","errors":[{"code":"error","detail":"Internal error"}]}',
+        } as any)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "session_fallback_999",
+            url: "https://payment.intasend.com/checkout/session_fallback_999/express/",
+            methods: ["pesalink", "transfi", "mpesa"],
+            currency: "USD",
+            amount: 48,
+          }),
+        } as any);
+
+      const result = await createIntaSendCheckoutSession({
+        amountUsd: 48,
+        email: "customer@example.com",
+        method: "M-PESA",
+        phoneNumber: "0712345678",
+        apiRef: "order_retry_1",
+        redirectUrl: "https://xauusdtracker.com/payment/status",
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(result.id).toBe("session_fallback_999");
+      expect(result.url).toContain("session_fallback_999");
+
+      fetchSpy.mockRestore();
+    });
+
     it("throws error if INTASEND_PUBLISHABLE_KEY is missing", async () => {
       delete process.env.INTASEND_PUBLISHABLE_KEY;
       delete process.env.NEXT_PUBLIC_INTASEND_PUBLISHABLE_KEY;

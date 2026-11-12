@@ -93,7 +93,7 @@ export function CheckoutClient({
           planId: plan.id,
           email: effectiveEmail,
           phoneNumber: activeMethod === "mpesa" ? cleanPhone : undefined,
-          method: activeMethod === "mpesa" ? "M-PESA" : "CARD-PAYMENT",
+          method: activeMethod === "mpesa" ? "M-PESA" : undefined,
         }),
       });
 
