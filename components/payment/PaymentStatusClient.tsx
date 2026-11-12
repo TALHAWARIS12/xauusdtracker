@@ -154,13 +154,13 @@ export function PaymentStatusClient({
           <div className="flex items-center gap-2">
             <span className="badge-pro">
               <Sparkles className="h-3 w-3" />
-              {isIntaSend ? "INTASEND M-PESA & CARD" : "NOWPAYMENTS GATEWAY"}
+              {isIntaSend ? "INTASEND M-PESA GATEWAY" : "NOWPAYMENTS GATEWAY"}
             </span>
           </div>
           <span className="text-[11px] text-slate-400 flex items-center gap-1 font-mono">
             <ShieldCheck className="h-3.5 w-3.5 text-bull-300" />
             {isIntaSend
-              ? "Verified Mobile Money & Card Rail"
+              ? "Verified Mobile Money Rail"
               : "Verified Cryptographic Channel"}
           </span>
         </div>

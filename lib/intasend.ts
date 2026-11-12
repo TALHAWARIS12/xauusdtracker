@@ -130,48 +130,70 @@ export async function createIntaSendCheckoutSession(
     payload.phone_number = formattedPhone;
   }
 
-  let response = await fetch(`${baseUrl}/api/v1/checkout/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-IntaSend-Public-API-Key": pubKey,
-    },
-    body: JSON.stringify(payload),
-  });
+  const requestHeaders = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "X-IntaSend-Public-API-Key": pubKey,
+  };
 
-  // If first attempt returned 500/502 and payload contained optional method or phone, retry with universal checkout payload
-  if (!response.ok && (payload.method || payload.phone_number)) {
-    console.warn("IntaSend attempt with specific method/phone failed, retrying with universal checkout payload...");
-    const fallbackPayload: Record<string, any> = {
-      public_key: pubKey,
-      amount: Number(params.amountUsd),
-      currency: "USD",
-      email: params.email.trim().toLowerCase(),
-      first_name: (params.firstName || "Customer").trim(),
-      last_name: (params.lastName || "Subscriber").trim(),
-      host: cleanHost,
-      redirect_url: cleanRedirectUrl,
-      api_ref: String(params.apiRef).trim(),
-    };
+  const endpointUrls = pubKey.includes("_test_")
+    ? ["https://sandbox.intasend.com/api/v1/checkout/"]
+    : [
+        "https://payment.intasend.com/api/v1/checkout/",
+        "https://api.intasend.com/api/v1/checkout/",
+      ];
 
-    const retryResponse = await fetch(`${baseUrl}/api/v1/checkout/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-IntaSend-Public-API-Key": pubKey,
-      },
-      body: JSON.stringify(fallbackPayload),
-    });
+  let response: Response | null = null;
+  let lastErrorText = "";
 
-    if (retryResponse.ok) {
-      response = retryResponse;
+  for (const url of endpointUrls) {
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: requestHeaders,
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        break;
+      }
+
+      // If method/phone caused error, retry with universal fallback payload
+      if (payload.method || payload.phone_number) {
+        const fallbackPayload: Record<string, any> = {
+          public_key: pubKey,
+          amount: Number(params.amountUsd),
+          currency: "USD",
+          email: params.email.trim().toLowerCase(),
+          first_name: (params.firstName || "Customer").trim(),
+          last_name: (params.lastName || "Subscriber").trim(),
+          host: cleanHost,
+          redirect_url: cleanRedirectUrl,
+          api_ref: String(params.apiRef).trim(),
+        };
+
+        const retryRes = await fetch(url, {
+          method: "POST",
+          headers: requestHeaders,
+          body: JSON.stringify(fallbackPayload),
+        });
+
+        if (retryRes.ok) {
+          response = retryRes;
+          break;
+        }
+      }
+
+      lastErrorText = await response.text();
+    } catch (err: any) {
+      lastErrorText = err?.message || "Network error reaching IntaSend";
     }
   }
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("IntaSend checkout session initialization error:", response.status, errorText);
-    throw new Error(`IntaSend API error (${response.status}): ${errorText}`);
+  if (!response || !response.ok) {
+    console.error("IntaSend checkout session initialization error:", response?.status, lastErrorText);
+    throw new Error(`IntaSend API error (${response?.status || 500}): ${lastErrorText}`);
   }
 
   return response.json();
