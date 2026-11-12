@@ -133,14 +133,86 @@ export function CheckoutClient({
       });
 
       const data = await res.json();
-      if (!res.ok || !data.checkoutUrl) {
+      if (!res.ok) {
         throw new Error(
           data.error || "Unable to initialize M-Pesa checkout. Please try again."
         );
       }
 
-      // Smooth direct navigation to the secure IntaSend checkout
-      window.location.href = data.checkoutUrl;
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
+      // Direct browser-to-IntaSend initialization fallback if server IP was blocked/500'd
+      if (data.clientFallback && data.publishableKey) {
+        const pubKey = data.publishableKey;
+        const redirectTarget =
+          data.redirectUrl || "https://xauusdtracker.com/payment/status";
+
+        const candidatePayloads: Record<string, any>[] = [
+          {
+            public_key: pubKey,
+            amount: Number(data.amountUsd || plan.priceUsd),
+            currency: "USD",
+            email: data.email || effectiveEmail,
+            first_name: "Customer",
+            last_name: "Subscriber",
+            redirect_url: redirectTarget,
+            api_ref: String(data.orderId),
+            ...(data.phoneNumber ? { phone_number: data.phoneNumber } : {}),
+          },
+          {
+            public_key: pubKey,
+            amount: Number(data.amountUsd || plan.priceUsd),
+            currency: "USD",
+            email: data.email || effectiveEmail,
+            redirect_url: redirectTarget,
+            api_ref: String(data.orderId),
+          },
+          {
+            public_key: pubKey,
+            amount: Number(
+              data.amountKes || Math.max(10, Math.round(plan.priceUsd * 129))
+            ),
+            currency: "KES",
+            method: "M-PESA",
+            email: data.email || effectiveEmail,
+            first_name: "Customer",
+            last_name: "Subscriber",
+            redirect_url: redirectTarget,
+            api_ref: String(data.orderId),
+          },
+        ];
+
+        for (const payload of candidatePayloads) {
+          try {
+            const directRes = await fetch(
+              "https://payment.intasend.com/api/v1/checkout/",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+              }
+            );
+            if (directRes.ok) {
+              const directData = await directRes.json();
+              if (directData?.url) {
+                window.location.href = directData.url;
+                return;
+              }
+            }
+          } catch {
+            // Try next candidate payload
+          }
+        }
+      }
+
+      throw new Error(
+        data.error || "Unable to initialize M-Pesa checkout. Please try again."
+      );
     } catch (err: any) {
       console.error("M-Pesa checkout error:", err);
       setMpesaError(

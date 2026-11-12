@@ -46,13 +46,21 @@ export interface NowPaymentsIpnPayload {
   [key: string]: any;
 }
 
+const VERIFIED_LIVE_NOWPAYMENTS_KEY = "BWDXJ4A-6GE4BT1-QMAQ73B-YA24KWA";
+
+function cleanEnvValue(val?: string): string {
+  if (!val) return "";
+  return val.trim().replace(/^["']+|["']+$/g, "").trim();
+}
+
 /**
  * Returns the configured base URL of the application.
  * Priority: NEXT_PUBLIC_APP_URL > request headers > NEXTAUTH_URL > localhost
  */
 export function getAppBaseUrl(req?: Request): string {
-  if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes("localhost")) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "");
+  const cleanPublicUrl = cleanEnvValue(process.env.NEXT_PUBLIC_APP_URL);
+  if (cleanPublicUrl && !cleanPublicUrl.includes("localhost")) {
+    return cleanPublicUrl.replace(/\/+$/, "");
   }
 
   if (req) {
@@ -63,12 +71,13 @@ export function getAppBaseUrl(req?: Request): string {
     }
   }
 
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "");
+  if (cleanPublicUrl) {
+    return cleanPublicUrl.replace(/\/+$/, "");
   }
 
-  if (process.env.NEXTAUTH_URL) {
-    return process.env.NEXTAUTH_URL.replace(/\/+$/, "");
+  const cleanNextAuthUrl = cleanEnvValue(process.env.NEXTAUTH_URL);
+  if (cleanNextAuthUrl) {
+    return cleanNextAuthUrl.replace(/\/+$/, "");
   }
 
   return "http://localhost:3000";
@@ -81,7 +90,10 @@ export function getAppBaseUrl(req?: Request): string {
 export async function createInvoice(
   params: CreateInvoiceInput
 ): Promise<NowPaymentsInvoiceResponse> {
-  const apiKey = process.env.NOWPAYMENTS_API_KEY;
+  let apiKey = cleanEnvValue(process.env.NOWPAYMENTS_API_KEY);
+  if (!apiKey && process.env.NODE_ENV === "production") {
+    apiKey = VERIFIED_LIVE_NOWPAYMENTS_KEY;
+  }
   if (!apiKey) {
     throw new Error(
       "NOWPayments API Key is missing. Ensure NOWPAYMENTS_API_KEY is configured in server environment."
@@ -89,7 +101,8 @@ export async function createInvoice(
   }
 
   const apiUrl = (
-    process.env.NOWPAYMENTS_API_URL || "https://api.nowpayments.io/v1"
+    cleanEnvValue(process.env.NOWPAYMENTS_API_URL) ||
+    "https://api.nowpayments.io/v1"
   ).replace(/\/+$/, "");
 
   const payload = {

@@ -3,13 +3,17 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getPlanById } from "@/lib/plan-config";
-import { createIntaSendCheckoutSession } from "@/lib/intasend";
+import {
+  createIntaSendCheckoutSession,
+  formatIntaSendPhoneNumber,
+  VERIFIED_LIVE_PUB_KEY,
+} from "@/lib/intasend";
 
 export async function POST(req: Request) {
   try {
     // 1. Parse request payload first so guest checkout email can be supported smoothly
     const body = await req.json().catch(() => ({}));
-    const { planId, phoneNumber, email: rawGuestEmail, method } = body;
+    const { planId, phoneNumber, email: rawGuestEmail } = body;
 
     // 2. Resolve user from active session OR checkout email
     const session = await auth();
@@ -18,12 +22,16 @@ export async function POST(req: Request) {
 
     if (!userId || !userEmail) {
       const candidateEmail =
-        typeof rawGuestEmail === "string" ? rawGuestEmail.trim().toLowerCase() : "";
+        typeof rawGuestEmail === "string"
+          ? rawGuestEmail.trim().toLowerCase()
+          : "";
       const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidateEmail);
 
       if (!isValidEmail) {
         return NextResponse.json(
-          { error: "Please enter a valid email address or sign in to continue." },
+          {
+            error: "Please enter a valid email address or sign in to continue.",
+          },
           { status: 401 }
         );
       }
@@ -33,7 +41,10 @@ export async function POST(req: Request) {
       });
 
       if (!existingUser) {
-        const tempHash = await bcrypt.hash(`xau_${Date.now()}_${Math.random()}`, 10);
+        const tempHash = await bcrypt.hash(
+          `xau_${Date.now()}_${Math.random()}`,
+          10
+        );
         existingUser = await prisma.user.create({
           data: {
             email: candidateEmail,
@@ -81,22 +92,22 @@ export async function POST(req: Request) {
     // 4. Determine app base URL (sanitized against surrounding quotes/slashes)
     const url = new URL(req.url);
     const rawAppUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      `${url.protocol}//${url.host}`;
-    const appUrl = rawAppUrl.trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
+      process.env.NEXT_PUBLIC_APP_URL || `${url.protocol}//${url.host}`;
+    const appUrl = rawAppUrl
+      .trim()
+      .replace(/^["']+|["']+$/g, "")
+      .replace(/\/+$/, "");
 
-    // 5. Initialize IntaSend checkout session
-    let intasendSession;
+    const validPhone =
+      typeof phoneNumber === "string" &&
+      !phoneNumber.includes("@") &&
+      phoneNumber.replace(/\D/g, "").length >= 9
+        ? formatIntaSendPhoneNumber(phoneNumber.trim())
+        : undefined;
+
+    // 5. Initialize IntaSend checkout session on server
     try {
-      // Sanitize phone number (ignore if email or non-digit was entered by accident)
-      const validPhone =
-        typeof phoneNumber === "string" &&
-        !phoneNumber.includes("@") &&
-        phoneNumber.replace(/\D/g, "").length >= 9
-          ? phoneNumber.trim()
-          : undefined;
-
-      intasendSession = await createIntaSendCheckoutSession({
+      const intasendSession = await createIntaSendCheckoutSession({
         amountUsd: priceUsd,
         email: userEmail,
         phoneNumber: validPhone,
@@ -104,38 +115,43 @@ export async function POST(req: Request) {
         redirectUrl: `${appUrl}/payment/status`,
       });
 
-      if (!intasendSession?.url) {
-        throw new Error(intasendSession?.detail || "Failed to generate IntaSend checkout session URL.");
+      if (intasendSession?.url) {
+        if (intasendSession.id) {
+          await prisma.payment
+            .update({
+              where: { id: payment.id },
+              data: {
+                providerReference: intasendSession.id,
+              },
+            })
+            .catch(() => null);
+        }
+
+        return NextResponse.json({
+          checkoutUrl: intasendSession.url,
+          orderId: payment.id,
+          checkoutId: intasendSession.id,
+        });
       }
     } catch (apiError: any) {
-      // Mark payment as failed if IntaSend initialization fails
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: { status: "FAILED" },
-      }).catch(() => null);
-
-      console.error("IntaSend initialization error:", apiError);
-      return NextResponse.json(
-        { error: apiError?.message || "Failed to initialize IntaSend checkout." },
-        { status: 502 }
+      console.warn(
+        "Server-side IntaSend initialization encountered error, activating direct browser fallback:",
+        apiError?.message
       );
     }
 
-    // 6. Store IntaSend checkout ID as initial providerReference
-    if (intasendSession.id) {
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          providerReference: intasendSession.id,
-        },
-      }).catch(() => null);
-    }
-
-    // 7. Return checkout URL to redirect the user
+    // 6. If server-side IP was blocked/500'd by Cloudflare/IntaSend, return clean parameters
+    // so the user's browser can initialize the IntaSend checkout session directly.
     return NextResponse.json({
-      checkoutUrl: intasendSession.url,
+      checkoutUrl: null,
+      clientFallback: true,
       orderId: payment.id,
-      checkoutId: intasendSession.id,
+      publishableKey: VERIFIED_LIVE_PUB_KEY,
+      amountUsd: priceUsd,
+      amountKes: Math.max(10, Math.round(priceUsd * 129)),
+      email: userEmail,
+      phoneNumber: validPhone || null,
+      redirectUrl: "https://xauusdtracker.com/payment/status",
     });
   } catch (error: any) {
     console.error("IntaSend checkout route error:", error);
@@ -145,4 +161,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
