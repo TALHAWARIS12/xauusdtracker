@@ -9,7 +9,7 @@ import {
   Lock,
   ArrowRight,
   Loader2,
-  CreditCard,
+  Coins,
   AlertTriangle,
   Smartphone,
   Mail,
@@ -23,6 +23,38 @@ interface CheckoutClientProps {
   isSubscribed?: boolean;
 }
 
+type CryptoOption = "USDT_TRC20" | "USDT_ERC20" | "BTC" | "ETH";
+
+const CRYPTO_CONFIG: Record<
+  CryptoOption,
+  { name: string; symbol: string; network: string; rate: number }
+> = {
+  USDT_TRC20: {
+    name: "Tether USD",
+    symbol: "USDT",
+    network: "TRON (TRC20)",
+    rate: 1.0,
+  },
+  USDT_ERC20: {
+    name: "Tether USD",
+    symbol: "USDT",
+    network: "Ethereum (ERC20)",
+    rate: 1.0,
+  },
+  BTC: {
+    name: "Bitcoin",
+    symbol: "BTC",
+    network: "Bitcoin Network",
+    rate: 0.000011,
+  },
+  ETH: {
+    name: "Ethereum",
+    symbol: "ETH",
+    network: "Ethereum Mainnet",
+    rate: 0.00034,
+  },
+};
+
 export function CheckoutClient({
   initialPlanId = "monthly",
   userEmail,
@@ -30,11 +62,16 @@ export function CheckoutClient({
   isSubscribed = false,
 }: CheckoutClientProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<string>(initialPlanId);
+  const [selectedCrypto, setSelectedCrypto] =
+    useState<CryptoOption>("USDT_TRC20");
   const [checkoutEmail, setCheckoutEmail] = useState<string>(userEmail || "");
   const [phoneNumber, setPhoneNumber] = useState<string>("");
 
-  const [activeMethod, setActiveMethod] = useState<"mpesa" | "card" | null>(null);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [isMpesaProcessing, setIsMpesaProcessing] = useState<boolean>(false);
+  const [mpesaError, setMpesaError] = useState<string | null>(null);
+
+  const [isCryptoProcessing, setIsCryptoProcessing] = useState<boolean>(false);
+  const [cryptoError, setCryptoError] = useState<string | null>(null);
 
   useEffect(() => {
     if (userEmail && !checkoutEmail) {
@@ -54,23 +91,29 @@ export function CheckoutClient({
   }, []);
 
   const plan: PlanTier = getPlanById(selectedPlanId);
+  const cryptoInfo = CRYPTO_CONFIG[selectedCrypto];
+  const cryptoAmount = (plan.priceUsd * cryptoInfo.rate).toFixed(
+    cryptoInfo.symbol === "USDT" ? 2 : 5
+  );
 
-  const handleCheckout = async (method: "mpesa" | "card") => {
-    setCheckoutError(null);
+  // ── 1. M-PESA ONLY CHECKOUT (INTASEND) ───────────────────────────────────────
+  const handleMpesaCheckout = async () => {
+    setMpesaError(null);
 
-    const effectiveEmail = (userEmail || checkoutEmail || "").trim().toLowerCase();
+    const effectiveEmail = (userEmail || checkoutEmail || "")
+      .trim()
+      .toLowerCase();
     if (!effectiveEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(effectiveEmail)) {
-      setCheckoutError(
+      setMpesaError(
         "Please enter your email address above so we can activate Pro access on your account immediately after payment."
       );
       return;
     }
 
-    setActiveMethod(method);
+    setIsMpesaProcessing(true);
 
     try {
       const cleanPhone =
-        method === "mpesa" &&
         phoneNumber &&
         !phoneNumber.includes("@") &&
         phoneNumber.replace(/\D/g, "").length >= 9
@@ -84,26 +127,67 @@ export function CheckoutClient({
           planId: plan.id,
           email: effectiveEmail,
           phoneNumber: cleanPhone,
-          preferredMethod: method,
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.checkoutUrl) {
         throw new Error(
-          data.error || "Unable to start checkout session. Please try again."
+          data.error || "Unable to initialize M-Pesa checkout. Please try again."
         );
       }
 
       window.location.href = data.checkoutUrl;
     } catch (err: any) {
-      console.error("Checkout error:", err);
-      setCheckoutError(
-        err?.message ||
-          "Failed to launch checkout. Please check your connection and try again."
+      console.error("M-Pesa checkout error:", err);
+      setMpesaError(
+        err?.message || "Failed to launch M-Pesa checkout. Please try again."
       );
     } finally {
-      setActiveMethod(null);
+      setIsMpesaProcessing(false);
+    }
+  };
+
+  // ── 2. CRYPTO CHECKOUT (NOWPAYMENTS) ─────────────────────────────────────────
+  const handleCryptoCheckout = async () => {
+    setCryptoError(null);
+
+    const effectiveEmail = (userEmail || checkoutEmail || "")
+      .trim()
+      .toLowerCase();
+    if (!effectiveEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(effectiveEmail)) {
+      setCryptoError(
+        "Please enter your email address above so we can activate Pro access on your account immediately after payment."
+      );
+      return;
+    }
+
+    setIsCryptoProcessing(true);
+
+    try {
+      const res = await fetch("/api/checkout/nowpayments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: plan.id,
+          email: effectiveEmail,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.checkoutUrl) {
+        throw new Error(
+          data.error ||
+            "Failed to initialize NOWPayments crypto checkout session."
+        );
+      }
+
+      window.location.href = data.checkoutUrl;
+    } catch (err: any) {
+      console.error("NOWPayments checkout error:", err);
+      setCryptoError(err?.message || "Failed to launch crypto checkout.");
+    } finally {
+      setIsCryptoProcessing(false);
     }
   };
 
@@ -113,18 +197,18 @@ export function CheckoutClient({
       <div className="text-center space-y-2">
         <span className="badge-pro flex items-center gap-1.5 w-fit mx-auto">
           <Zap className="h-3.5 w-3.5 text-gold-300" />
-          SECURE CHECKOUT · M-PESA &amp; DEBIT / CREDIT CARD
+          SECURE CHECKOUT · M-PESA &amp; CRYPTO
         </span>
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
           Complete Your Pro Subscription
         </h1>
         <p className="text-sm text-slate-400 max-w-lg mx-auto">
-          Choose M-Pesa (Instant STK Push) or Debit / Credit Card (Visa &amp; Mastercard) below. Your Pro access activates immediately upon payment confirmation.
+          Pay via M-Pesa (Instant STK Push) or pay with 200+ cryptocurrencies via NOWPayments. Both activate your Pro clearance immediately.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left: Plan selector, Account Email, M-Pesa & Card Options (7 cols) */}
+        {/* Left: Plan selector, Email & M-Pesa / Crypto payment methods (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
           {/* 1. Plan Interval Picker */}
           <div className="card p-5 space-y-3">
@@ -165,7 +249,7 @@ export function CheckoutClient({
             </div>
           </div>
 
-          {/* Account Email Box (Seamless for both Logged-in & New Visitors) */}
+          {/* Account Email Box (Smooth 1-Click Checkout without disabled buttons) */}
           <div className="card p-5 space-y-3">
             <div className="flex items-center justify-between">
               <label
@@ -194,7 +278,8 @@ export function CheckoutClient({
                 value={checkoutEmail}
                 onChange={(e) => {
                   setCheckoutEmail(e.target.value);
-                  if (checkoutError) setCheckoutError(null);
+                  if (mpesaError) setMpesaError(null);
+                  if (cryptoError) setCryptoError(null);
                 }}
                 placeholder="Enter your email address (e.g. trader@example.com)"
                 className={`w-full rounded-xl border px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition ${
@@ -207,18 +292,11 @@ export function CheckoutClient({
             <p className="text-[11px] text-slate-400">
               {userEmail
                 ? "Signed in — your Pro subscription will activate directly on this account."
-                : "Enter your email above and choose M-Pesa or Card below for smooth, instant checkout."}
+                : "Enter your email above and choose M-Pesa or Crypto below for instant checkout."}
             </p>
           </div>
 
-          {checkoutError && (
-            <div className="rounded-xl bg-bear-400/10 border border-bear-400/30 p-3.5 text-xs text-bear-300 flex items-start gap-2.5">
-              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-bear-400" />
-              <span>{checkoutError}</span>
-            </div>
-          )}
-
-          {/* ── OPTION 2: PAY WITH M-PESA (MOBILE MONEY / STK PUSH) ─────── */}
+          {/* ── OPTION 2: PAY WITH M-PESA ONLY (NO CARD) ───────────────────── */}
           <div className="card p-6 space-y-5 border-bull-400/30 bg-bull-400/[0.02] relative overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div className="flex items-center gap-2.5">
@@ -226,11 +304,11 @@ export function CheckoutClient({
                   <Smartphone className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-white">
-                    2. Pay with M-Pesa (Mobile Money)
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+                    2. Pay with M-Pesa (STK Push)
                   </h2>
                   <p className="text-[11px] text-slate-400">
-                    Instant Safaricom M-Pesa STK Push &amp; Mobile Money
+                    Direct Safaricom M-Pesa Mobile Money Checkout
                   </p>
                 </div>
               </div>
@@ -240,13 +318,13 @@ export function CheckoutClient({
               </span>
             </div>
 
-            {/* M-Pesa Badges */}
+            {/* M-Pesa Badges Only (No Card Badges) */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className="rounded-lg border border-bull-400/30 bg-bull-400/15 px-3 py-1 text-xs font-bold text-bull-200 tracking-wider">
                 M-PESA EXPRESS (STK Push)
               </span>
               <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                Safaricom
+                Safaricom M-Pesa
               </span>
               <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-slate-300">
                 Airtel Money
@@ -259,7 +337,7 @@ export function CheckoutClient({
                 htmlFor="mpesa_mobile_number"
                 className="text-xs font-medium text-slate-300 flex items-center justify-between"
               >
-                <span>M-Pesa Phone Number (Optional — for instant STK prompt)</span>
+                <span>M-Pesa Mobile Number (Optional, for auto-fill)</span>
                 <span className="text-[11px] text-slate-400">
                   e.g. 0712345678 or 2547...
                 </span>
@@ -274,34 +352,44 @@ export function CheckoutClient({
                 placeholder="0712 345 678"
                 className="w-full rounded-xl border border-white/15 bg-ink-850 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-bull-400 focus:outline-none focus:ring-1 focus:ring-bull-400 font-mono"
               />
+              <p className="text-[11px] text-slate-400">
+                Receive an immediate M-Pesa PIN prompt on your phone to complete your subscription.
+              </p>
             </div>
 
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2 text-xs text-slate-300">
               <div className="flex items-start gap-2">
                 <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Direct PIN Prompt:</strong> Receive an instant M-Pesa STK Push on your phone to confirm payment in seconds.
+                  <strong>Instant M-Pesa STK Push:</strong> Receive a direct PIN prompt on your Safaricom line with automatic KES conversion.
                 </span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Automatic Currency Conversion:</strong> Converts ${plan.priceUsd} USD automatically to local mobile money at checkout.
+                  <strong>Zero-Delay Clearance:</strong> Account upgrades to Pro institutional access immediately once M-Pesa payment is confirmed.
                 </span>
               </div>
             </div>
 
+            {mpesaError && (
+              <div className="rounded-lg bg-bear-400/10 border border-bear-400/30 p-3 text-xs text-bear-300 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{mpesaError}</span>
+              </div>
+            )}
+
             <button
               type="button"
-              disabled={activeMethod !== null}
-              onClick={() => handleCheckout("mpesa")}
+              disabled={isMpesaProcessing || isCryptoProcessing}
+              onClick={handleMpesaCheckout}
               className="btn-primary w-full py-3.5 text-sm font-bold shadow-gold cursor-pointer disabled:opacity-50"
               id="intasend-checkout-btn"
             >
-              {activeMethod === "mpesa" ? (
+              {isMpesaProcessing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Launching M-Pesa Checkout...</span>
+                  <span>Connecting to M-Pesa...</span>
                 </>
               ) : (
                 <>
@@ -311,85 +399,137 @@ export function CheckoutClient({
                 </>
               )}
             </button>
+
+            <p className="text-center text-[11px] text-slate-400">
+              Direct M-Pesa mobile money checkout · Instant Pro activation
+            </p>
           </div>
 
-          {/* ── OPTION 3: PAY WITH DEBIT / CREDIT CARD (VISA & MASTERCARD) ── */}
-          <div className="card p-6 space-y-5 border-gold-400/25 bg-ink-900 relative overflow-hidden">
+          {/* ── OPTION 3: PAY WITH CRYPTO (NOWPAYMENTS) ────────────────────── */}
+          <div className="card p-6 space-y-6 border-gold-400/25">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="h-9 w-9 rounded-xl bg-gold-400/15 border border-gold-400/30 flex items-center justify-center text-gold-300">
-                  <CreditCard className="h-5 w-5" />
+                  <Coins className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-white">
-                    3. Pay with Debit or Credit Card
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+                    3. Pay with Crypto (NOWPayments)
                   </h2>
                   <p className="text-[11px] text-slate-400">
-                    Visa, Mastercard &amp; International Bank Cards
+                    USDT (TRC20/ERC20), Bitcoin, Ethereum &amp; 200+ Coins
                   </p>
                 </div>
               </div>
               <span className="text-[11px] text-gold-300 flex items-center gap-1 font-semibold bg-gold-400/10 border border-gold-400/20 px-2.5 py-1 rounded-full">
-                <Lock className="h-3.5 w-3.5" />
-                3D-Secure
+                <ShieldCheck className="h-3.5 w-3.5" />
+                200+ Coins
               </span>
             </div>
 
-            {/* Card Network Badges */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="rounded-lg border border-gold-400/30 bg-gold-400/10 px-3 py-1 text-xs font-bold text-gold-200 tracking-wider">
-                VISA
-              </span>
-              <span className="rounded-lg border border-gold-400/30 bg-gold-400/10 px-3 py-1 text-xs font-bold text-gold-200 tracking-wider">
-                MASTERCARD
-              </span>
-              <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                Debit &amp; Credit Cards
-              </span>
-              <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                PesaLink / Bank Transfer
-              </span>
-            </div>
-
-            <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2 text-xs text-slate-300">
-              <div className="flex items-start gap-2">
-                <Check className="h-4 w-4 text-gold-300 shrink-0 mt-0.5" />
-                <span>
-                  <strong>All Local &amp; Global Cards Accepted:</strong> Pay smoothly with any Visa or Mastercard debit, credit, or prepaid card worldwide.
-                </span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-4 w-4 text-gold-300 shrink-0 mt-0.5" />
-                <span>
-                  <strong>256-Bit Encrypted &amp; Instant Clearance:</strong> Your Pro subscription activates the moment your card transaction is approved.
-                </span>
+            {/* Currency selector buttons */}
+            <div className="space-y-2">
+              <label className="label">Supported Payment Currencies</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(Object.keys(CRYPTO_CONFIG) as CryptoOption[]).map((key) => {
+                  const c = CRYPTO_CONFIG[key];
+                  const isSelected = selectedCrypto === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedCrypto(key)}
+                      className={`rounded-lg border p-2.5 text-center transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-gold-300 bg-gold-400/10 text-white shadow-gold"
+                          : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <span className="block text-xs font-bold">{c.symbol}</span>
+                      <span className="block text-[10px] text-slate-400 truncate">
+                        {c.network.split(" ")[0]}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <button
-              type="button"
-              disabled={activeMethod !== null}
-              onClick={() => handleCheckout("card")}
-              className="w-full py-3.5 px-6 rounded-xl bg-ink-850 hover:bg-ink-800 border-2 border-gold-400/50 hover:border-gold-400 text-white font-bold text-sm transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              id="card-checkout-btn"
-            >
-              {activeMethod === "card" ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin text-gold-300" />
-                  <span>Launching Secure Card Checkout...</span>
-                </>
-              ) : (
-                <>
-                  <CreditCard className="h-4 w-4 text-gold-300" />
-                  <span>Pay with Debit / Credit Card (${plan.priceUsd})</span>
-                  <ArrowRight className="h-4 w-4 text-gold-300" />
-                </>
+            {/* Crypto Payment Overview */}
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
+                <div>
+                  <span className="text-slate-400 block text-[11px]">
+                    Estimated Equivalent:
+                  </span>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="font-display text-xl font-bold text-white tabular">
+                      {cryptoAmount} {cryptoInfo.symbol}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      (${plan.priceUsd}.00 USD)
+                    </span>
+                  </div>
+                </div>
+                <div className="sm:text-right">
+                  <span className="text-slate-400 block text-[11px]">
+                    Target Network:
+                  </span>
+                  <span className="font-semibold text-gold-300 text-xs mt-0.5 block">
+                    {cryptoInfo.network}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-xs text-slate-300">
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Dynamic Invoice &amp; QR Code:</strong> A dedicated blockchain invoice and QR code are generated on the NOWPayments page.
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-bull-300 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>200+ Cryptocurrencies Supported:</strong> Accepts USDT (TRC20, ERC20, Polygon), BTC, ETH, SOL, LTC and more.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 space-y-3">
+              {cryptoError && (
+                <div className="rounded-lg bg-bear-400/10 border border-bear-400/30 p-3 text-xs text-bear-300 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{cryptoError}</span>
+                </div>
               )}
-            </button>
 
-            <p className="text-center text-[11px] text-slate-400">
-              PCI-DSS Level 1 compliant card processing · Instant account upgrade
-            </p>
+              <button
+                type="button"
+                disabled={isCryptoProcessing || isMpesaProcessing}
+                onClick={handleCryptoCheckout}
+                className="btn-secondary w-full py-3.5 text-sm font-bold cursor-pointer hover:border-gold-300 hover:text-gold-200 disabled:opacity-50"
+                id="nowpayments-checkout-btn"
+              >
+                {isCryptoProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Connecting to NOWPayments...</span>
+                  </>
+                ) : (
+                  <>
+                    <Coins className="h-4 w-4 text-gold-300" />
+                    <span>Pay with Crypto (${plan.priceUsd})</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+
+              <p className="text-center text-[11px] text-slate-400">
+                Direct hosted crypto invoice · Automatic blockchain confirmation &amp; clearance
+              </p>
+            </div>
           </div>
         </div>
 
@@ -437,7 +577,7 @@ export function CheckoutClient({
                 <span>Instant Account Activation</span>
               </div>
               <p>
-                Your clearance activates automatically upon M-Pesa or Card confirmation. Cancel or change plan anytime from Account settings.
+                Your clearance activates automatically upon M-Pesa or Crypto confirmation. Cancel or change plan anytime from Account settings.
               </p>
             </div>
 

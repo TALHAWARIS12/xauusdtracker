@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getPlanById } from "@/lib/plan-config";
@@ -6,21 +7,46 @@ import { createInvoice, getAppBaseUrl } from "@/lib/nowpayments";
 
 export async function POST(req: Request) {
   try {
-    // 1. Authenticate the requesting user session using existing auth
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized: Please sign in to initiate payment checkout." },
-        { status: 401 }
-      );
-    }
-
-    const userId = session.user.id;
-
-    // 2. Validate incoming planId from the request body
+    // 1. Parse incoming request body
     const body = await req.json().catch(() => ({}));
-    const { planId } = body;
+    const { planId, email: rawGuestEmail } = body;
+
+    // 2. Authenticate the requesting user session or resolve smooth checkout email
+    const session = await auth();
+    let userId = session?.user?.id;
+
+    if (!userId) {
+      const candidateEmail =
+        typeof rawGuestEmail === "string" ? rawGuestEmail.trim().toLowerCase() : "";
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidateEmail);
+
+      if (!isValidEmail) {
+        return NextResponse.json(
+          { error: "Unauthorized: Please sign in to initiate payment checkout." },
+          { status: 401 }
+        );
+      }
+
+      let existingUser = await prisma.user.findUnique({
+        where: { email: candidateEmail },
+      });
+
+      if (!existingUser) {
+        const tempHash = await bcrypt.hash(`xau_${Date.now()}_${Math.random()}`, 10);
+        existingUser = await prisma.user.create({
+          data: {
+            email: candidateEmail,
+            passwordHash: tempHash,
+            role: "USER",
+            subscription: {
+              create: { status: "INACTIVE" },
+            },
+          },
+        });
+      }
+
+      userId = existingUser.id;
+    }
 
     if (!planId || typeof planId !== "string") {
       return NextResponse.json(

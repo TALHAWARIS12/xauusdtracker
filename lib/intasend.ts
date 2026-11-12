@@ -97,6 +97,7 @@ export async function createIntaSendCheckoutSession(
     public_key: pubKey,
     amount: params.amountUsd,
     currency: "USD",
+    method: "M-PESA",
     email: params.email,
     first_name: params.firstName || "Customer",
     last_name: params.lastName || "Subscriber",

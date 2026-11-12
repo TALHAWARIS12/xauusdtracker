@@ -4,8 +4,8 @@ import { CheckoutClient } from "@/components/checkout/CheckoutClient";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Secure Checkout — M-Pesa & Card",
-  description: "Subscribe to XAUUSD Tracker using M-Pesa (STK Push) or Debit / Credit Card (Visa & Mastercard).",
+  title: "Secure Checkout — M-Pesa & Crypto",
+  description: "Subscribe to XAUUSD Tracker using M-Pesa (STK Push) or Cryptocurrency via NOWPayments.",
 };
 
 interface CheckoutPageProps {
