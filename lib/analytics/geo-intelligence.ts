@@ -219,7 +219,10 @@ export function inferUserCountry(params: {
   if (paymentCurrencies?.includes("GHS")) {
     return COUNTRY_CATALOG.GH;
   }
-  if (paymentProviders?.includes("INTASEND")) {
+  if (
+    paymentProviders?.includes("INTASEND") ||
+    paymentProviders?.includes("PAYBILL")
+  ) {
     return COUNTRY_CATALOG.KE;
   }
 

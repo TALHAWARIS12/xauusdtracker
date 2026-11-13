@@ -57,7 +57,7 @@ export function PaywallGateOverlay({
             <ArrowRight className="h-4 w-4" />
           </Link>
           <p className="mt-2 text-[11px] text-slate-400">
-            Instant activation · M-Pesa &amp; Crypto accepted · Cancel anytime
+            M-Pesa Paybill (919700) &amp; Crypto accepted · Cancel anytime
           </p>
         </div>
       </div>

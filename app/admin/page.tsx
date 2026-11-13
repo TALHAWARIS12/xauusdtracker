@@ -24,6 +24,10 @@ import {
   AdminPaymentItem,
 } from "@/components/admin/PaymentHistoryTable";
 import {
+  PendingPaybillApprovals,
+  PendingManualPaymentItem,
+} from "@/components/admin/PendingPaybillApprovals";
+import {
   AdminAuditLogTable,
   AdminAuditItem,
 } from "@/components/admin/AdminAuditLogTable";
@@ -157,10 +161,43 @@ export default async function AdminPage() {
     };
   });
 
+  // Retrieve pending manual/Paybill payments awaiting admin verification
+  const dbPendingManual = await prisma.payment.findMany({
+    where: {
+      status: "PENDING",
+      provider: { in: ["PAYBILL", "MANUAL"] },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: {
+      user: {
+        select: {
+          email: true,
+          subscription: { select: { status: true } },
+        },
+      },
+    },
+  });
+
+  const pendingManualPayments: PendingManualPaymentItem[] = dbPendingManual.map(
+    (p) => ({
+      id: p.id,
+      userId: p.userId,
+      userEmail: p.user.email,
+      provider: p.provider,
+      providerReference: p.providerReference,
+      amount: p.amount,
+      currency: p.currency,
+      status: p.status,
+      createdAt: p.createdAt.toISOString(),
+      subscriptionStatus: p.user.subscription?.status ?? "INACTIVE",
+    })
+  );
+
   // Retrieve payment records
   const dbPayments = await prisma.payment.findMany({
     orderBy: { createdAt: "desc" },
-    take: 15,
+    take: 25,
     include: { user: { select: { email: true } } },
   });
 
@@ -347,6 +384,9 @@ export default async function AdminPage() {
           </div>
         </div>
       </div>
+
+      {/* Dedicated Manual Payment & Paybill Approvals Section */}
+      <PendingPaybillApprovals pendingPayments={pendingManualPayments} />
 
       {/* Registered Accounts Geographic Origin Breakdown */}
       <div className="bg-terminal-surface border border-terminal-border rounded-lg overflow-hidden shadow-xl">

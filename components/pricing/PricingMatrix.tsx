@@ -166,7 +166,7 @@ export function PricingMatrix({ isSubscribed = false, activePlanId = null }: Pri
           <div>
             <h4 className="text-sm font-semibold text-white">100% Risk-Free Guarantee</h4>
             <p className="text-xs text-slate-400">
-              Instant activation upon payment confirmation. Pay seamlessly via Safaricom M-Pesa (STK Push) or Cryptocurrency (USDT, BTC, ETH &amp; 200+ coins via NOWPayments).
+              Fast activation upon payment confirmation. Pay seamlessly via M-Pesa Paybill (919700 · Acc: 0018255401) &amp; send proof to Support@xauusdtracker.com, or pay with Cryptocurrency (USDT, BTC, ETH &amp; 200+ coins via NOWPayments).
             </p>
           </div>
         </div>
@@ -174,11 +174,11 @@ export function PricingMatrix({ isSubscribed = false, activePlanId = null }: Pri
         <div className="flex items-center gap-4 text-xs text-slate-400 shrink-0">
           <span className="flex items-center gap-1.5">
             <Check className="h-4 w-4 text-bull-300" />
-            Instant Activation
+            Fast Pro Activation
           </span>
           <span className="flex items-center gap-1.5">
             <Check className="h-4 w-4 text-bull-300" />
-            M-Pesa &amp; Crypto Accepted
+            M-Pesa Paybill &amp; Crypto
           </span>
           <span className="flex items-center gap-1.5">
             <Check className="h-4 w-4 text-bull-300" />
@@ -196,9 +196,9 @@ export function PricingMatrix({ isSubscribed = false, activePlanId = null }: Pri
 
         <div className="grid gap-3 text-xs">
           <div className="card-muted p-4 space-y-1.5">
-            <h3 className="font-semibold text-white text-sm">How does M-Pesa &amp; Crypto checkout work?</h3>
+            <h3 className="font-semibold text-white text-sm">How does M-Pesa Paybill &amp; Crypto checkout work?</h3>
             <p className="text-slate-400 leading-relaxed">
-              When you click Subscribe, you can choose between instant M-Pesa STK Push (Safaricom / Airtel Money) or Cryptocurrency (USDT, Bitcoin, Ethereum, and 200+ coins via NOWPayments). Once your payment is confirmed, your Pro clearance activates immediately.
+              When you click Subscribe, you can choose between M-Pesa Paybill (Paybill 919700, Account 0018255401 — send your payment proof to Support@xauusdtracker.com for manual Pro activation) or Cryptocurrency (USDT, Bitcoin, Ethereum, and 200+ coins via NOWPayments for automatic activation).
             </p>
           </div>
 

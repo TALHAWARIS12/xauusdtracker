@@ -24,8 +24,14 @@ const COMPLAINT_TOPICS = [
     body: "Hi XAUUSD Tracker Support,\n\nI would like to file a complaint regarding:\n\n[Please describe your issue or complaint in detail]\n\nAccount Email: ",
   },
   {
+    id: "paybill-proof",
+    label: "Paybill Payment Proof",
+    subject: "Paybill Payment Proof (919700) - XAUUSD Tracker",
+    body: "Hi XAUUSD Tracker Support,\n\nI have paid via M-Pesa Paybill (Paybill: 919700, Account: 0018255401). Please find my proof of payment attached for manual Pro activation.\n\nAccount Email: \nPlan Tier (Monthly $48 / Yearly $188): \nM-Pesa Confirmation Code: \nPhone Number Used: ",
+  },
+  {
     id: "payment",
-    label: "Payment & NOWPayments",
+    label: "Crypto / NOWPayments",
     subject: "Complaint: Crypto / NOWPayments Issue - XAUUSD Tracker",
     body: "Hi XAUUSD Tracker Support,\n\nI am experiencing an issue with my crypto payment / NOWPayments invoice.\n\nOrder ID / Tx Hash: \nPayment Amount / Asset: \nDetails of complaint: \n\nAccount Email: ",
   },

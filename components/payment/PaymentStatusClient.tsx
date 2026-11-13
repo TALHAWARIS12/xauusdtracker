@@ -140,10 +140,27 @@ export function PaymentStatusClient({
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
+  const isPaybill =
+    details?.provider === "PAYBILL" ||
+    details?.provider === "MANUAL" ||
+    provider === "paybill" ||
+    provider === "PAYBILL";
+
   const isIntaSend =
-    details?.provider === "INTASEND" ||
-    provider === "intasend" ||
-    provider === "INTASEND";
+    !isPaybill &&
+    (details?.provider === "INTASEND" ||
+      provider === "intasend" ||
+      provider === "INTASEND");
+
+  const paybillProofGmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+    "Support@xauusdtracker.com"
+  )}&su=${encodeURIComponent(
+    `Paybill Payment Proof (919700) - Order ${orderId || details?.orderId || ""}`
+  )}&body=${encodeURIComponent(
+    `Hi XAUUSD Tracker Support,\n\nI have completed M-Pesa Paybill payment (Paybill: 919700, Account: 0018255401).\nOrder Reference: ${
+      orderId || details?.orderId || "[Order ID]"
+    }\nPlease find my payment proof attached for Pro activation.\n\nAccount Email: `
+  )}`;
 
   return (
     <div className="container-app py-12 max-w-2xl" id="payment-status-container">
@@ -154,12 +171,18 @@ export function PaymentStatusClient({
           <div className="flex items-center gap-2">
             <span className="badge-pro">
               <Sparkles className="h-3 w-3" />
-              {isIntaSend ? "INTASEND M-PESA GATEWAY" : "NOWPAYMENTS GATEWAY"}
+              {isPaybill
+                ? "M-PESA PAYBILL 919700"
+                : isIntaSend
+                ? "INTASEND M-PESA GATEWAY"
+                : "NOWPAYMENTS GATEWAY"}
             </span>
           </div>
           <span className="text-[11px] text-slate-400 flex items-center gap-1 font-mono">
             <ShieldCheck className="h-3.5 w-3.5 text-bull-300" />
-            {isIntaSend
+            {isPaybill
+              ? "Manual Support Verification"
+              : isIntaSend
               ? "Verified Mobile Money Rail"
               : "Verified Cryptographic Channel"}
           </span>
@@ -242,15 +265,33 @@ export function PaymentStatusClient({
             {/* Title & Description */}
             <div className="space-y-2">
               <h1 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                {isIntaSend
+                {isPaybill
+                  ? "Paybill proof received. Awaiting admin verification..."
+                  : isIntaSend
                   ? "Payment in progress. Waiting for confirmation..."
                   : "Payment detected. Waiting for blockchain confirmation..."}
               </h1>
               <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-                {isIntaSend
+                {isPaybill
+                  ? "If you haven't emailed your M-Pesa Paybill (919700 / Acc: 0018255401) screenshot yet, send it to Support@xauusdtracker.com. Once an admin approves your proof, your Pro access activates immediately."
+                  : isIntaSend
                   ? "Please check your phone for the M-Pesa PIN prompt if you haven't authorized it yet. Your institutional clearance will unlock automatically once confirmed."
                   : "We are actively listening for network confirmations on your deposit. Your institutional clearance will unlock automatically the instant block confirmations are reached."}
               </p>
+              {isPaybill && (
+                <div className="pt-2">
+                  <a
+                    href={paybillProofGmailUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold shadow-gold"
+                    id="status-send-proof-gmail-btn"
+                  >
+                    <span>Send Proof to Support@xauusdtracker.com</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Live Polling Status Indicator */}
